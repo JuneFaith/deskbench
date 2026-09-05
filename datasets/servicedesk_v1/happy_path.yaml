@@ -1,0 +1,28 @@
+- id: software-consultation-001
+  title: 办公软件使用咨询
+  input:
+    title: 办公软件功能使用咨询
+    description: 请问内部办公协作软件的消息免打扰功能在哪里设置，需要在会议期间临时屏蔽消息弹窗提醒，不影响正常工作。
+    channel: api
+  expected:
+    category: software
+    priority: P4
+    final_status: closed
+    assignee_required: true
+    resolution_required: true
+  policy:
+    max_steps: 10
+- id: database-consultation-001
+  title: 数据库查询优化咨询
+  input:
+    title: 数据库历史报表只读查询优化咨询
+    description: 非业务高峰期历史统计报表查询耗时较长，咨询索引优化建议与最佳实践，不影响实时线上交易业务。
+    channel: api
+  expected:
+    category: database
+    priority: P3
+    final_status: closed
+    assignee_required: true
+    resolution_required: true
+  policy:
+    max_steps: 12

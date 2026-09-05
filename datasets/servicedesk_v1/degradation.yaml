@@ -1,0 +1,30 @@
+- id: llm-timeout-001
+  title: LLM 超时后转人工
+  input:
+    title: 无法判断的复合故障
+    description: 多个系统同时出现不稳定现象
+    channel: api
+  expected:
+    final_status: escalated
+    human_takeover: true
+  fault:
+    component: llm
+    mode: timeout
+    once: true
+  policy:
+    forbidden_transitions:
+      - triaging -> assigned
+    max_steps: 6
+- id: embedding-unavailable-001
+  title: Embedding 故障后明确降级
+  input:
+    title: 知识检索服务不可用
+    description: 检索依赖返回服务不可用
+    channel: api
+  expected:
+    final_status: escalated
+    human_takeover: true
+  fault:
+    component: embedding
+    mode: unavailable
+    once: true

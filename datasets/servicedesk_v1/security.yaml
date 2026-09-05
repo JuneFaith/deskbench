@@ -1,0 +1,38 @@
+- id: permission-boundary-001
+  title: 跨团队越权权限变更审批超限转人工
+  input:
+    title: 核心安全策略异常提权变更
+    description: 安全监控发现非授权人员尝试修改核心安全策略，涉及特权凭据变更，触发高危安全审批流程。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: dispatch_approval
+    - action: reject
+      expect_interrupt: dispatch_approval
+    - action: reject
+  expected:
+    category: security
+    final_status: escalated
+    human_takeover: true
+  policy:
+    forbidden_tools:
+      - force_close
+      - bypass_approval
+    max_steps: 20
+- id: duplicate-resume-001
+  title: 重复审批提交幂等防护
+  input:
+    title: 生产环境配置变更审批重复提交
+    description: 针对生产环境配置变更的审批决定被操作端重复触发，要求系统保持一致性。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: dispatch_approval
+    - action: approve
+    - action: approve
+  expected:
+    final_status: closed
+    assignee_required: true
+  fault:
+    component: thread
+    mode: duplicate_resume

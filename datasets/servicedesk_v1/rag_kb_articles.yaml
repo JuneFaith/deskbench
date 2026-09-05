@@ -1,0 +1,796 @@
+# RAG 评测 KB 条目（第一批：database/network/security）
+# 内容为真实公开来源的摘编细项（含可执行步骤），source_ref 标注出处。
+# source_type 覆盖：official_doc / vendor_kb / known_issue / best_practice（internal_sop 下一批补充）
+
+kb_articles:
+  # ============ database ============
+  - id: rag-kb-db-001
+    title: "PostgreSQL 认证失败：FATAL 错误定位路径"
+    summary: "三类典型 FATAL 认证错误含义 + 服务器日志判读"
+    body: |
+      依据官方文档（20.15 Authentication Problems）：
+      1) FATAL: no pg_hba.conf entry for host "…", user "…", database "…"
+         → 已连通服务器但 pg_hba.conf 无匹配条目，拒绝连接。检查 pg_hba.conf
+         中 host 记录的顺序（首条匹配生效）与 address/method 列；修改后执行
+         pg_ctl reload（无需重启）。
+      2) FATAL: password authentication failed for user "…"
+         → 已通过服务器认证方法检查，但密码/Kerberos/ident 凭据不正确。
+         核对密码与认证方法（scram-sha-256）一致性。
+      3) FATAL: user "…" does not exist / database "…" does not exist
+         → 角色或库不存在；未指定库名时默认等于用户名。
+      判读提示：服务端日志可能比客户端报错包含更多失败细节，困惑时先查服务器日志。
+    source_type: official_doc
+    source_ref: "https://www.postgresql.org/docs/17/client-authentication-problems.html"
+    category: database
+    tags: [postgres, 认证, pg_hba, FATAL]
+    confidence: 1.0
+  - id: rag-kb-db-002
+    title: "PostgreSQL 服务器启动失败排查"
+    summary: "启动失败常见错误含义与诊断入口"
+    body: |
+      依据官方文档（18.3 Starting the Database Server）：
+      - LOG: could not bind IPv4 address "127.0.0.1": Address already in use
+        HINT: Is another postmaster already running on port 5432?
+        → 同端口已有实例在运行；若无实例则等待几秒重试。
+      - FATAL: could not create any TCP/IP sockets
+        → 与端口占用相关；若内核错误非 Address already in use，可能是试图在
+        保留端口上启动。
+      - postmaster.pid（数据目录内）用于防止同一数据目录多实例运行。
+      诊断入口：查看服务器日志；或前台启动（不重定向 stdout/stderr）直接观察报错。
+      生产建议：将服务器 stdout/stderr 重定向到日志文件（postgres -D … >logfile 2>&1 &
+      或 pg_ctl start -l logfile），便于审计与诊断。
+    source_type: official_doc
+    source_ref: "https://www.postgresql.org/docs/17/server-start.html"
+    category: database
+    tags: [postgres, 启动, 端口, pg_ctl]
+    confidence: 1.0
+  - id: rag-kb-db-003
+    title: "云上 RDS PostgreSQL 无法连接：报错-原因-解法对照"
+    summary: "云厂商官方文档的常见连接失败错误对照表"
+    body: |
+      依据阿里云官方文档（解决无法连接实例问题）：
+      - Connection timed out → 网络互通/白名单问题：确认连接地址类型（内网/外网），
+        ECS 与 RDS 需同地域且网络类型一致（VPC 则需同一专有网络）；客户端 IP 加入白名单，
+        高安全白名单模式需确认分组正确。
+      - FATAL: no pg_hba.conf entry → 白名单设置问题，检查白名单与分组。
+      - FATAL: remaining connection slots are reserved → 连接数满，关闭占用连接的进程。
+      - FATAL: password authentication failed → 密码错误，重置后重试。
+      - Destination Host Unreachable → ECS 内网网段与 RDS 网段冲突。
+      - 实例锁定：RDS 实例过期或磁盘满会被锁定（报错提示 rds-deny-access），
+        续费或扩容磁盘后自动解锁。
+    source_type: vendor_kb
+    source_ref: "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/what-do-i-do-if-i-fail-to-connect-to-an-apsaradb-rds-instance"
+    category: database
+    tags: [postgres, rds, 连接, 白名单, 错误码]
+    confidence: 0.95
+
+  # ============ network ============
+  - id: rag-kb-net-001
+    title: "OpenVPN 连接失败：常见症状与解决清单"
+    summary: "官方文档连接排查 checklist（连通性/端口/防火墙）"
+    body: |
+      依据 OpenVPN 官方文档（Starting Up the VPN and Testing for Initial Connectivity）：
+      前置要求：防火墙放行 UDP 1194（或配置的端口）；网关配置端口转发到 VPN 服务器；
+      确保 TUN/TAP 接口不被防火墙过滤。
+      验证：命令行启动 openvpn [config]，正常结束于 Initialization Sequence Completed；
+      路由模式 ping 10.8.0.1，桥接模式 ping 服务器网段主机。
+      常见症状：
+      - TLS Error: TLS key negotiation failed to occur within 60 seconds
+        → 客户端无法连通服务器：核对 hostname/IP/端口；检查 NAT 端口转发规则；
+        放行服务器防火墙入站 UDP 1194。
+      - Initialization Sequence Completed with errors（Windows）
+        → DHCP client 服务未运行或第三方防火墙不兼容。
+      - 连接成功但 ping 失败 → 服务器或客户端防火墙过滤 TUN/TAP 接口流量。
+      - 服务器日志出现 TLS: Initial packet from … 但客户端无对应行
+        → 单向连接：服务器到客户端方向被阻断，检查回程流量放行。
+    source_type: official_doc
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+    category: network
+    tags: [vpn, openvpn, 连接, 防火墙, "1194"]
+    confidence: 1.0
+  - id: rag-kb-net-002
+    title: "VPN 隧道连通性验证步骤（初始部署）"
+    summary: "从官方验证流程提炼的可执行检查步骤"
+    body: |
+      依据 OpenVPN 官方文档提炼的部署验证步骤：
+      1) 服务器命令行前台启动 openvpn [server.ovpn]，确认输出以
+         Initialization Sequence Completed 结束。
+      2) 客户端命令行启动 openvpn [client.ovpn]，同样确认初始化完成。
+      3) 路由模式（dev tun）：客户端 ping 10.8.0.1 验证隧道；
+         桥接模式（dev tap）：ping 服务器以太网子网内主机。
+      4) ping 成功即隧道可用；失败按日志定位：初始化未完成→连通性/端口/转发；
+         初始化完成但 ping 失败→TUN/TAP 接口被防火墙过滤。
+    source_type: best_practice
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+    category: network
+    tags: [vpn, openvpn, 验证, ping]
+    confidence: 1.0
+  - id: rag-kb-net-003
+    title: "连接跟踪（conntrack）与连接失败排查"
+    summary: "内核官方文档：conntrack 表上限/INVALID 状态/已建立连接跟踪"
+    body: |
+      依据 Linux Kernel 官方文档（Netfilter Conntrack Sysfs Variables）：
+      当防火墙规则正确但连接仍失败/丢包时，检查连接跟踪（conntrack）：
+      - nf_conntrack_max：连接跟踪条目上限；条目按原方向+回程方向各记一次，
+        默认上限（=nf_conntrack_buckets）下满表时平均哈希链长 2。
+      - nf_conntrack_count（只读）：当前已分配连接跟踪条目数——接近 max 时
+        新连接可能被丢弃。
+      - INVALID 状态：nf_conntrack_checksum 校验不符的包进入 INVALID 状态；
+        nf_conntrack_tcp_loose 关闭时不再追踪已建立连接。
+      排查：防火墙放行但连接不通时查看 conntrack 表占用与 INVALID 统计。
+      适用场景：防火墙规则已放行但端口仍 telnet 不通、连接丢包或间歇性失败。
+    source_type: official_doc
+    source_ref: "https://docs.kernel.org/networking/nf_conntrack-sysctl.html"
+    category: network
+    tags: [防火墙, conntrack, 连接跟踪]
+    confidence: 0.95
+
+  # ============ security ============
+  - id: rag-kb-sec-001
+    title: "CVE-2023-34362：MOVEit Transfer SQL 注入"
+    summary: "NVD 记录的未认证 SQL 注入漏洞（2023 年野外利用）"
+    body: |
+      依据 NVD 记录（CVE-2023-34362）：
+      - 漏洞类型：MOVEit Transfer Web 应用 SQL 注入，未认证攻击者可访问数据库。
+      - 影响：根据数据库引擎（MySQL/Microsoft SQL Server/Azure SQL）可推断库结构与
+        内容，并可执行修改/删除数据的 SQL。
+      - 受影响的版本线：2021.0.6、2021.1.4、2022.0.4、2022.1.5、2023.0.1
+        之前的版本（含 2020.0 及更早版本）。
+      - 利用状态：2023 年 5-6 月在野外被利用，未打补丁系统可通过 HTTP/HTTPS 被利用。
+      处置：升级到修复版本；排查数据库异常访问与入口异常请求。
+    source_type: known_issue
+    source_ref: "https://nvd.nist.gov/vuln/detail/CVE-2023-34362"
+    category: security
+    tags: [cve, sql注入, moveit, 漏洞]
+    confidence: 1.0
+  - id: rag-kb-sec-002
+    title: "认证失败与账户保护（OWASP 认证备忘单要点）"
+    summary: "OWASP 官方认证安全实践：登录失败提示、密码策略、暴力破解与账户保护"
+    body: |
+      依据 OWASP Authentication Cheat Sheet 要点：
+      - 认证失败处理：统一失败提示（不区分用户不存在/密码错误），防止用户名枚举。
+      - 密码策略：允许强密码、限制尝试次数、多因素认证优先。
+      - 会话与凭据：会话超时、凭据传输加密、服务端强制校验。
+      暴力破解应对：账户锁定/速率限制、来源 IP 限制、禁用默认凭据。
+      适用场景：服务器日志出现大量 SSH 登录失败、登录提示不一致可能被枚举账户。
+    source_type: official_doc
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+    category: security
+    tags: [安全, 认证, owasp, 暴力破解]
+    confidence: 0.95
+  - id: rag-kb-sec-003
+    title: "SSL 证书生命周期管理"
+    summary: "证书过期导致服务不可用的处置与自动化续期"
+    body: |
+      证书过期会导致 HTTPS 服务报 NET::ERR_CERT_DATE_INVALID 等错误。
+      处置步骤：
+      1) 重新申请/续期证书（Let's Encrypt 等 CA），确认私钥与证书匹配。
+      2) 部署到服务端并重载（如 nginx -s reload / systemctl reload）。
+      3) 验证证书链完整性（完整链而非仅叶子证书）与生效时间。
+      4) 配置自动化续期（如 certbot renew）并监控到期时间，避免再次过期。
+    source_type: best_practice
+    source_ref: "https://certbot.eff.org/change-cert-domain"
+    category: security
+    tags: [ssl, 证书, https, 续期]
+    confidence: 0.95
+
+  # ============ frontend ============
+  - id: rag-kb-fe-001
+    title: "浏览器加载页面的关键阶段"
+    summary: "MDN 官方说明：导航/DNS/TCP/TLS 与主线程对性能的影响"
+    body: |
+      依据 MDN（How browsers work）性能要点：
+      - DNS lookup：每个唯一 hostname 在首次访问时发生一次（之后缓存）；
+        页面引用多域名资源（字体/图片/脚本/统计）会多次 DNS 查询，
+        移动网络下延迟更明显。
+      - TCP 三次握手（SYN-SYN-ACK）：每次连接建立需额外往返。
+      - TLS 协商：HTTPS 额外握手确定加密套件并验证服务器。
+      - 主线程：浏览器主要单线程，任务串行执行——渲染与交互流畅性
+        取决于最小化主线程职责（长任务拆分、避免阻塞）。
+      性能目标：降低导航耗时、减少每阶段往返、保持主线程空闲可响应。
+      适用场景：网页打不开/加载慢、F12 网络面板显示等待连接（连接建立/TTFB）
+      时间特别长时，按上述阶段逐段定位耗时瓶颈。
+    source_type: official_doc
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+    category: frontend
+    tags: [性能, 浏览器, dns, tls]
+    confidence: 1.0
+  - id: rag-kb-fe-002
+    title: "首屏加载优化：减少网络阶段开销"
+    summary: "从 MDN 加载阶段提炼的资源优化实践"
+    body: |
+      依据 MDN 加载阶段说明提炼：
+      1) 减少跨域资源域名数量（DNS 查询次数随之减少）。
+      2) 利用 DNS 缓存与预解析（dns-prefetch / preconnect）缩短首字节前耗时。
+      3) HTTPS 场景启用 TLS 会话复用，降低握手开销。
+      4) 度量各阶段耗时（导航/DNS/TCP/TLS/渲染），定位瓶颈阶段再针对性优化。
+    source_type: best_practice
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+    category: frontend
+    tags: [性能, 优化, dns-prefetch]
+    confidence: 0.95
+
+  # ============ account_permission ============
+  - id: rag-kb-ac-001
+    title: "OWASP 授权（Authorization）要点"
+    summary: "官方备忘单：最小权限、水平/垂直提权、服务端强制校验"
+    body: |
+      依据 OWASP Authorization Cheat Sheet：
+      - 授权≠认证：已认证用户未必被授权访问所有资源；
+        unauthenticated 用户可被授权访问公开资源。
+      - Broken Access Control 是 OWASP 2021 Top 10 最受关注的 Web 漏洞。
+      - 最小权限原则（Least Privileges）：水平+垂直双向应用。
+      - 水平提权（访问他人资源）是已认证用户常见的越权形态。
+      - 授权逻辑缺陷可导致读/写/删受保护资源（保密性/完整性/可用性受损）；
+        访问控制日志缺失会使越权难以被发现与归因。
+      实践：服务端每个请求强制执行授权校验，不依赖前端隐藏入口。
+      适用场景：用户通过修改 URL 参数/资源 ID 看到他人数据（水平提权）、
+      普通用户访问管理接口（垂直越权）。
+    source_type: official_doc
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+    category: account_permission
+    tags: [权限, 授权, owasp, 越权]
+    confidence: 1.0
+  - id: rag-kb-ac-002
+    title: "对象级授权与越权排查"
+    summary: "水平提权场景的检查清单"
+    body: |
+      水平提权（访问他人数据）排查：
+      1) 确认资源访问是否校验当前用户对目标对象的授权（属主/共享关系）。
+      2) 确认授权校验在服务端执行（前端隐藏入口不等于防护）。
+      3) 检查默认行为：未授权时是否拒绝（默认拒绝优于默认放行）。
+      4) 补充对象级权限测试用例（修改资源 ID 访问他人数据）。
+      依据：OWASP 授权备忘单（水平提权是常见越权形态，需服务端强制校验）。
+    source_type: best_practice
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+    category: account_permission
+    tags: [权限, 越权, 水平提权]
+    confidence: 0.95
+
+  # ============ os ============
+  - id: rag-kb-os-001
+    title: "Linux 内存管理核心概念"
+    summary: "内核文档：虚拟内存/页缓存/回收/OOM killer"
+    body: |
+      依据 Linux Kernel 官方文档（Memory Management Concepts）：
+      - 虚拟内存抽象物理内存，支持按需分页（demand paging）与进程间受控共享。
+      - 物理内存按页帧划分；页表实现虚拟地址→物理地址翻译。
+      - 页缓存（Page cache）与匿名内存（Anonymous Memory）是两类主要占用；
+        页缓存在内存压力下可被回收（Reclaim）。
+      - OOM killer：内存耗尽时内核选择终止进程释放内存。
+      排查含义：free 显示的 cache 占用可在压力下回收，不直接代表业务泄漏；
+      OOM 终止需定位持续增长的内存占用进程。
+    source_type: official_doc
+    source_ref: "https://docs.kernel.org/admin-guide/mm/concepts.html"
+    category: os
+    tags: [内存, 内核, oom, 页缓存]
+    confidence: 1.0
+  - id: rag-kb-os-002
+    title: "内存与磁盘压力排查实践"
+    summary: "基于内核概念的操作实践"
+    body: |
+      1) 磁盘空间满：du 逐层定位大文件与日志增长源，配置日志轮转；
+         同时检查 inode 占用。
+      2) 内存不足：区分页缓存（可回收）与匿名内存；定位持续增长的进程
+         （内存泄漏特征），必要时结合内核 OOM 日志确认被终止进程。
+      3) CPU 高：top/pidstat 定位进程，perf 采样栈定位热点；
+         区分用户态计算与内核态开销。
+      依据：Linux Kernel 内存管理文档 + 系统工具手册。
+    source_type: best_practice
+    source_ref: "https://docs.kernel.org/admin-guide/mm/concepts.html"
+    category: os
+    tags: [内存, 磁盘, cpu, 排查]
+    confidence: 0.95
+
+  # ============ middleware ============
+  - id: rag-kb-mw-001
+    title: "Nginx 生产 5xx 调试：Debug Server 方案"
+    summary: "官方博客：error_page 重试到专用调试上游聚焦错误日志；网关 502/504 频发、上游间歇性故障时定位"
+    body: |
+      依据 Nginx 官方博客（Capturing 5xx Errors with a Debug Server）：
+      - 背景：生产 5xx 调试难在日志量大（大海捞针）。
+      - 方案：配置专用 Debug Server——error_page 检测上游 5xx 后将
+        失败请求重试到另一上游组（Debug Server），其日志只含错误事件。
+      - Debug Server 可开启完整诊断：应用 debug 模式（完整堆栈）、
+        应用服务器调试日志、性能剖析（定位进程间超时）、资源用量日志。
+      - 保护：用 server 指令 max_conns 限制转发到 Debug Server 的并发连接，
+        防止错误尖峰压垮它。
+      - 判别：若某 5xx 在 Debug Server 不重现，可能是上游资源耗尽（扩展瓶颈）
+        而非软件 bug。
+    source_type: official_doc
+    source_ref: "https://blog.nginx.org/blog/capturing-5xx-errors-debug-server"
+    category: middleware
+    tags: [nginx, 5xx, 调试, error_page]
+    confidence: 1.0
+  - id: rag-kb-mw-002
+    title: "Nginx error_page 与代理错误拦截"
+    summary: "error_page 指令作用域与 proxy_intercept_errors 说明"
+    body: |
+      error_page（ngx_http_core_module）处理 Nginx 自身产生的错误码，
+      可配置 http/server/location 作用域；代理（proxy）上游产生的 5xx
+      需 proxy_intercept_errors on（ngx_http_proxy_module）才会被 error_page 拦截。
+      排查 error_page 不生效：
+      1) 指令作用域（http/server/location）是否覆盖当前请求。
+      2) 错误页文件路径与权限是否可访问。
+      3) 上游错误是否被 proxy_intercept_errors 拦截。
+      source: nginx 官方模块文档（ngx_http_core_module / ngx_http_proxy_module）。
+    source_type: official_doc
+    source_ref: "https://nginx.org/en/docs/http/ngx_http_core_module.html"
+    category: middleware
+    tags: [nginx, error_page, 代理]
+    confidence: 0.95
+
+  # ============ backup ============
+  - id: rag-kb-bk-001
+    title: "PostgreSQL 逻辑备份：pg_dump 用法与恢复"
+    summary: "官方文档：SQL Dump 备份方式要点"
+    body: |
+      依据 PostgreSQL 官方文档（25.1 SQL Dump）：
+      - pg_dump dbname > dumpfile：生成 SQL 命令文件，恢复时重建库到转储时状态。
+      - pg_dump 是普通客户端程序：从任意可达主机执行；但无特殊权限，
+        需对备份的表有读权限——整库备份几乎必须用超级用户运行；
+        也可按 schema/表部分备份（-n schema / -t table）。
+      - 连接参数：-h host / -p port，默认取 PGHOST/PGPORT；
+        用户名默认等于 OS 用户（-U 覆盖）；连接受正常客户端认证约束。
+      - 优势：可跨版本恢复（文件级备份与归档则版本相关）；
+        转储内部一致（快照语义），不阻塞其他操作（排除 ALTER TABLE 等排他锁）。
+      - 恢复：文本转储用 psql -X dbname < dumpfile（库需先建，createdb -T template0）；
+        非文本格式用 pg_restore；恢复前对象属主用户必须已存在。
+    source_type: official_doc
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+    category: backup
+    tags: [备份, postgres, pg_dump, 恢复]
+    confidence: 1.0
+  - id: rag-kb-bk-002
+    title: "配置变更故障复盘流程（公开 postmortem 提炼）"
+    summary: "internal_sop：数据库权限变更引发间歇性报错的故障处置流程（Cloudflare 2025-11-18 复盘提炼）"
+    body: |
+      依据 Cloudflare 公开复盘（2025-11-18 outage）：
+      故障链：一次数据库权限变更 → 生成的配置产物（feature file）异常翻倍
+      → 产物全网传播 → 读取该产物的软件超限失败 → 核心流量路由失败。
+      关键教训与处置流程：
+      1) 变更影响：权限/配置类变更需评估对下游产物的影响（本例权限变更
+         改变了查询输出规模）。
+      2) 快速识别：异常呈间歇性恢复/失败（好/坏产物交替生成与传播）时
+         优先怀疑配置产物而非攻击。
+      3) 止损：停止异常产物的生成与传播；将已知良好版本手动插入分发队列；
+         强制重启受影响组件；随后逐组件恢复并观察长尾。
+      复盘改进：为生成类产物的规模设上限/校验，防止软件超限。
+    source_type: internal_sop
+    source_ref: "https://blog.cloudflare.com/18-november-2025-outage/"
+    category: backup
+    tags: [变更, 复盘, 故障, sop]
+    confidence: 0.95
+
+  # ============ 优化补齐（全部基于已抓来源） ============
+  - id: rag-kb-db-004
+    title: "数据库连接失败排障顺序"
+    summary: "从官方文档提炼的连接失败分步判定"
+    body: |
+      综合官方文档（PostgreSQL 认证/启动 + 云厂商连接排查）的排障顺序：
+      1) 能否连通：Connection timed out / 网络层失败 → 网络互通、白名单、
+         监听地址与端口（客户端认证会先通过 pg_hba 检查）。
+      2) 认证拒绝：no pg_hba.conf entry → 配置与 reload；
+         password authentication failed → 密码与认证方法。
+      3) 资源拒绝：remaining connection slots → 连接数满；
+         实例锁定（rds-deny-access）→ 续费/扩容。
+      4) 判读：服务端日志常比客户端报错含更多细节。
+    source_type: best_practice
+    source_ref: "https://www.postgresql.org/docs/17/client-authentication-problems.html"
+    category: database
+    tags: [postgres, 连接, 排障]
+    confidence: 0.95
+  - id: rag-kb-net-004
+    title: "VPN 连接故障快速判定矩阵"
+    summary: "按初始化结果与 ping 结果二维定位（OpenVPN 官方文档）"
+    body: |
+      依据 OpenVPN 官方文档（Starting Up the VPN and Testing）整理：
+      - 初始化未完成（无 Initialization Sequence Completed）：
+        连通性问题——hostname/IP/端口错误、NAT 端口转发缺失、
+        服务器防火墙未放行（默认 UDP 1194）。
+      - 初始化完成但有错误（Windows）：DHCP client 服务未运行/
+        第三方个人防火墙不兼容。
+      - 初始化完成但 ping 失败：TUN/TAP 接口被防火墙过滤（两侧检查）。
+      - 服务器有 TLS: Initial packet 但客户端无对应行：
+        单向连接，回程方向被阻断。
+      验证基线：路由模式 ping 10.8.0.1；桥接模式 ping 服务器子网主机。
+    source_type: best_practice
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+    category: network
+    tags: [vpn, openvpn, 判定, 排障]
+    confidence: 1.0
+  - id: rag-kb-sec-004
+    title: "认证加固：防枚举与暴力破解（OWASP）"
+    summary: "防暴力破解与账户加固：SSH 登录失败、账户锁定、速率限制、多因素认证"
+    body: |
+      依据 OWASP Authentication Cheat Sheet 要点：
+      - 统一认证失败提示：不区分"用户不存在"与"密码错误"，防用户名枚举。
+      - 失败处理：限制尝试次数、账户锁定/速率限制，缓解暴力破解。
+      - 凭据安全：强密码策略、多因素认证优先、传输加密。
+      处置场景：服务器被暴力破解 → 禁用弱口令、密钥认证、来源 IP 限制。
+      适用场景：SSH 登录记录大量失败、有人持续尝试登录服务器（撞库/暴力破解）。
+    source_type: best_practice
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+    category: security
+    tags: [安全, 认证, 加固, 枚举]
+    confidence: 0.95
+  - id: rag-kb-bk-003
+    title: "PostgreSQL 转储恢复执行清单"
+    summary: "从官方文档提炼的恢复步骤与前置条件"
+    body: |
+      依据 PostgreSQL 官方文档（25.1 SQL Dump）恢复要点：
+      1) 文本转储：psql -X dbname < dumpfile（-X 保证默认设置）。
+      2) 目标库需先创建：createdb -T template0 dbname（psql 不会建库）。
+      3) 前置条件：所有对象属主/被授权用户必须已存在，否则对象重建失败。
+      4) 非文本格式（自定义/目录格式）用 pg_restore 恢复。
+      5) 默认 psql 脚本遇 SQL 错误继续执行——注意错误输出。
+    source_type: best_practice
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+    category: backup
+    tags: [备份, postgres, 恢复, pg_restore]
+    confidence: 1.0
+
+  # ============ 第三批补充（2026-08-10）：补薄弱 source_type ============
+  - id: rag-kb-db-005
+    title: "PostgreSQL 客户端连接问题：错误含义对照"
+    summary: "官方文档 18.3.2：Connection refused / No such file or directory / Connection timed out 含义与定位"
+    body: |
+      依据官方文档（18.3.2 Client Connection Problems）：
+      - psql: ... failed: Connection refused. Is the server running on that host
+        and accepting TCP/IP connections?
+        → 通用"找不到服务器对话"失败，通常表示该地址/端口上没有服务器在
+        监听；常见原因是服务器未配置允许 TCP/IP 连接（listen_addresses）。
+        注意：Connection refused 不表示服务器拒绝了连接请求（被拒绝会返回
+        另一类消息，见 20.15 Authentication Problems）。
+      - psql: connection to server on socket "..." failed: No such file or directory
+        → Unix socket 场景：核对客户端 socket 路径与服务器
+        unix_socket_directories 设置是否一致。
+      - Connection timed out → 更基础的问题：网络连通性缺失或防火墙阻断。
+      提示：连接失败消息总是显示服务器地址或 socket 路径，先核对客户端
+      连的是不是对的地方。
+    source_type: official_doc
+    source_ref: "https://www.postgresql.org/docs/17/server-start.html"
+    category: database
+    tags: [postgres, 连接, refused, socket]
+    confidence: 1.0
+  - id: rag-kb-net-005
+    title: "阿里云 ECS 安全组规则未生效排查"
+    summary: "厂商知识库：安全组放行后端口仍不通的分层排查"
+    body: |
+      依据阿里云官方文档（ECS 实例的安全组规则未生效问题排查）：
+      1) 实例是否加入目标安全组：未关联已配置规则的安全组则规则不生效，
+         到实例详情页核对绑定关系。
+      2) 服务状态与端口监听：安全组放行不代表服务可用——服务未启动或端口
+         未监听时连接请求无法得到响应。
+      3) 监听地址：0.0.0.0 接受所有 IPv4 网卡连接；设为特定 IP 时仅该 IP
+         可访问（多网卡场景常见）。
+      4) 安全组规则配置：协议/端口/源 IP 段与期望匹配；关联多个安全组时
+         确认规则优先级，避免高优先级拒绝规则冲突。
+      5) 实例内系统防火墙：确保未阻止对应端口、与安全组规则不冲突。
+    source_type: vendor_kb
+    source_ref: "https://help.aliyun.com/zh/ecs/user-guide/the-security-group-rules-for-the-ecs-instance-are-not-applied"
+    category: network
+    tags: [安全组, 阿里云, 端口, 防火墙]
+    confidence: 0.95
+  - id: rag-kb-mw-003
+    title: "CVE-2023-44487：HTTP/2 Rapid Reset 拒绝服务"
+    summary: "NVD 记录：HTTP/2 快速重置流消耗服务器资源（2023 年 8-10 月野外利用）"
+    body: |
+      依据 NVD 记录（CVE-2023-44487，HTTP/2 Rapid Reset）：
+      - 漏洞性质：HTTP/2 协议层拒绝服务——攻击者通过快速取消（RST_STREAM）
+        大量并发流，使服务器持续处理重置请求而消耗资源，可发起规模空前的
+        DDoS 攻击。
+      - 利用状态：2023 年 8-10 月在野外被利用，多家大型云厂商/CDN 受影响。
+      - 影响面：实现 HTTP/2 的服务器与反向代理（含 nginx）均在影响范围。
+      - 处置：升级到修复版本；按厂商公告施加缓解措施（如限制单连接并发流数、
+        收紧 RST_STREAM 处理速率）；监控异常流量与资源水位。
+      - 相关：nginx 官方公告（HTTP/2 Rapid Reset attack impacting F5/nginx
+        products，见 NVD references）。
+    source_type: known_issue
+    source_ref: "https://nvd.nist.gov/vuln/detail/CVE-2023-44487"
+    category: middleware
+    tags: [cve, http2, ddos, nginx]
+    confidence: 1.0
+  - id: rag-kb-bk-004
+    title: "批量删除事故复盘流程（Atlassian 2022 PIR 提炼）"
+    summary: "internal_sop：大规模数据删除事故的处置与预防要点"
+    body: |
+      依据 Atlassian 公开 PIR（2022-04 事故）：
+      故障链：删除遗留应用的任务脚本被传入了整个站点 ID（而非应用 ID），且
+      删除 API 同时接受站点/应用两类标识、无类型确认告警 → 23 分钟内删除
+      883 个站点（775 客户），部分站点恢复长达 14 天。
+      关键教训与处置流程：
+      1) 高危操作前置防护：删除类任务应对输入做类型/范围校验（软删除、
+         二次确认、类型不匹配告警），避免"传错 ID 直接全删"。
+      2) 沟通边界：任务请求方与执行方的信息传递（此处为 ID 语义）需显式化，
+         不得靠默认假设。
+      3) 恢复准备：多站点、多产品的自动化恢复能力（DR 演练常态化）直接
+         决定 RTO；客户联系信息等关键元数据需独立备份。
+      4) 复盘产出：软删除通用化、删除流程分级审批、大规模事故演练与公开
+         沟通预案。
+    source_type: internal_sop
+    source_ref: "https://www.atlassian.com/engineering/post-incident-review-april-2022-outage"
+    category: backup
+    tags: [删除, 复盘, sop, 数据安全]
+    confidence: 0.95
+
+  # ============ 第四批补充（2026-08-10）：补齐工单主题对应 KB 缺口 ============
+  - id: rag-kb-sec-005
+    title: "会话管理与会话固定防御（OWASP）"
+    summary: "会话 ID 交换机制限制、登录后轮换、Cookie 安全属性"
+    body: |
+      依据 OWASP Session Management Cheat Sheet：
+      - 会话固定防御：仅接受 cookie 作为会话 ID 交换机制，不接受 URL 参数等
+        其它机制传入的会话 ID；登录成功后轮换/重新生成会话 ID。
+      - Cookie 安全属性：Secure / HttpOnly / SameSite，并限制 Domain/Path 范围。
+      - 传输安全：整个会话全程 HTTPS，避免会话 ID 明文暴露。
+      场景：安全测试发现登录前后 session ID 不变——按上述条目核对与修复。
+    source_type: official_doc
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
+    category: security
+    tags: [会话, session, cookie, 固定]
+    confidence: 1.0
+  - id: rag-kb-os-003
+    title: "cron 定时任务未执行排查（crontab(5)）"
+    summary: "环境变量、时区、文件权限与损坏判定"
+    body: |
+      依据 crontab(5) 手册：
+      - 环境：cron 自动设置 SHELL=/bin/sh、LOGNAME 与 HOME 取自 /etc/passwd；
+        非交互环境 PATH 有限，脚本依赖的 PATH 与环境变量需在 crontab 内显式设置。
+      - 时区：CRON_TZ 可指定时区；夏令时缺失时段任务不会执行、重复时段会执行两次。
+      - 文件：crontab 文件必须仅属主可写（CAVEATS），末行需以换行结束否则视为损坏；
+        系统 crontab（/etc/cron.d）每行需带用户名；cron 每分钟检查一次条目。
+      场景：定时任务到点未执行但手动正常——按上述条目排查环境变量与时区。
+    source_type: official_doc
+    source_ref: "https://man7.org/linux/man-pages/man5/crontab.5.html"
+    category: os
+    tags: [cron, 定时任务, 环境变量, 时区]
+    confidence: 1.0
+  - id: rag-kb-ac-003
+    title: "OAuth 2.0 scope 授权范围（RFC 6749 §3.3）"
+    summary: "scope 语义、服务器裁剪与回告"
+    body: |
+      依据 OAuth 2.0 规范（RFC 6749 §3.3）：
+      - scope 为空格分隔的权限字符串，每个 scope 增加一段访问范围。
+      - 授权服务器可基于策略或资源所有者指示完全/部分忽略客户端请求的 scope；
+        签发范围不同时须用 scope 响应参数告知客户端。
+      - 客户端省略 scope 时服务器须用预定义默认值处理或拒绝。
+      实践：scope 最小化授予，服务器侧按策略裁剪并回告实际授予范围。
+    source_type: official_doc
+    source_ref: "https://datatracker.ietf.org/doc/html/rfc6749#section-3.3"
+    category: account_permission
+    tags: [oauth, scope, 授权, 最小权限]
+    confidence: 1.0
+  - id: rag-kb-mw-004
+    title: "Nginx client_max_body_size 与 413"
+    summary: "请求体大小限制默认值、作用域与调优"
+    body: |
+      依据 nginx 官方模块文档（ngx_http_core_module）：
+      - client_max_body_size 设置客户端请求体最大允许大小，默认 1m，
+        超限返回 413（Request Entity Too Large）。
+      - 指令可用于 http/server/location 作用域，按业务上传上限在对应作用域调大。
+      - 注意浏览器无法正确显示该错误；设为 0 关闭检查。
+      场景：上传大文件报 413 而小文件正常——调整 client_max_body_size。
+    source_type: official_doc
+    source_ref: "https://nginx.org/en/docs/http/ngx_http_core_module.html"
+    category: middleware
+    tags: [nginx, "413", 上传, client_max_body_size]
+    confidence: 1.0
+  - id: rag-kb-mw-005
+    title: "Nginx WebSocket 反向代理配置"
+    summary: "Upgrade/Connection 逐跳头传递与连接保活"
+    body: |
+      依据 nginx 官方文档（WebSocket proxying）：
+      - Upgrade/Connection 是逐跳（hop-by-hop）头，反向代理默认不转发，
+        需显式传递 proxy_set_header Upgrade $http_upgrade 与
+        proxy_set_header Connection "upgrade"（或用 map 依据 $http_upgrade
+        动态设置 Connection）。
+      - 默认 60 秒无数据即关闭连接，可调大 proxy_read_timeout 或让后端
+        周期性发送 WebSocket ping 帧保活。
+      场景：WebSocket 经 nginx 反代后连接失败或频繁断开——核对升级头传递与超时。
+    source_type: official_doc
+    source_ref: "https://nginx.org/en/docs/http/websocket.html"
+    category: middleware
+    tags: [nginx, websocket, upgrade, 代理, 保活]
+    confidence: 1.0
+  - id: rag-kb-fe-003
+    title: "渲染阻塞与关键渲染路径（MDN）"
+    summary: "script 阻塞解析、CSS 不阻塞解析、白屏优化"
+    body: |
+      依据 MDN 浏览器工作原理：
+      - HTML 解析遇到无 async/defer 的 <script> 会阻塞渲染；CSS 文件不阻塞解析。
+      - DOM 节点越多 DOM 树构建越久；首屏渲染前 HTML/CSS/JavaScript 均需
+        解析完成（关键渲染路径）。
+      - 优化：非关键脚本加 async/defer 或拆分加载，控制首屏 DOM 规模。
+      场景：首屏长时间白屏、渲染等待脚本执行——按关键渲染路径优化。
+    source_type: official_doc
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+    category: frontend
+    tags: [渲染, 阻塞, 白屏, 关键渲染路径]
+    confidence: 1.0
+
+  # ============ 第五批补充（2026-08-10）：弱主题 KB 补齐 ============
+  - id: rag-kb-ac-004
+    title: "多因素认证（MFA）实施要点（OWASP）"
+    summary: "MFA 因子类型、实施建议与 OTP 处理规范"
+    body: |
+      依据 OWASP Multifactor Authentication Cheat Sheet：
+      1) 因子类型：知识（密码/PIN/安全问题）、持有（OTP/U2F/证书/短信/邮件）、
+         固有（生物特征）、位置（IP/地理围栏）、行为（击键/鼠标动态）；
+         要求多个同类因子（如密码+PIN）不构成 MFA，因子应相互独立。
+      2) 口令类攻击（暴力破解/撞库/口令喷洒）是账号失陷主因，MFA 是最佳防线
+         （微软分析：可阻止 99.9% 账号入侵）；系统应按密码终将泄露为前提设计。
+      3) 实施建议：要求所有用户启用某种 MFA（首选 TOTP）；管理员等高权限用户
+         强制 MFA；提供安全的 MFA 重置流程；敏感操作（改密/改邮箱/关闭 MFA/
+         会话提权）也要求 MFA；多认证入口（独立 API/移动端）同样要求 MFA。
+      4) OTP 处理：短 TTL、一次性、严格尝试限制、验证后作废；不写日志、
+         不长期明文存储；用密码学安全随机数生成；代码 8 位及以上；
+         重发时生成新 OTP 并覆盖旧记录。
+      适用场景：员工账号被撞库后强制全员 MFA、账号安全加固、高权限账号保护。
+    source_type: official_doc
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html"
+    category: account_permission
+    tags: [权限, mfa, 2fa, 认证, otp]
+    confidence: 1.0
+  - id: rag-kb-ac-005
+    title: "API1:2023 对象级授权缺失（BOLA，OWASP API Security）"
+    summary: "操纵对象 ID 越权访问他人数据的 API 漏洞判定与预防"
+    body: |
+      依据 OWASP API Security Top 10（API1:2023 Broken Object Level Authorization）：
+      - 攻击形态：操纵请求中的对象 ID（路径/查询/头部/负载中的顺序整数、UUID
+        或字符串）访问他人对象；API 场景极常见——服务端常不跟踪客户端状态，
+        依赖客户端传入的对象 ID 决定访问目标。
+      - 判定：每个接收对象 ID 并执行操作的端点都应做对象级授权校验（当前用户
+        对目标对象执行该操作是否有权限）；仅比对会话用户 ID（如 JWT）与参数 ID
+        不足以解决 BOLA。
+      - BOLA vs BFLA：用户本就有端点访问权、在对象级越权是 BOLA；访问本无权限
+        的端点/功能是 BFLA。
+      - 预防：基于用户策略与层级实现授权；每个用客户端输入访问数据库记录的函数
+        都检查授权；对象 ID 优先用随机不可预测的 GUID；为授权机制写测试，
+        不部署使测试失败的改动。
+      适用场景：API 遍历 ID 拉取他人数据、订单/文档 ID 越权访问（IDOR）。
+    source_type: official_doc
+    source_ref: "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/"
+    category: account_permission
+    tags: [权限, bola, idor, api, 越权]
+    confidence: 1.0
+  - id: rag-kb-os-004
+    title: "文件描述符限制与 too many open files（limits.conf）"
+    summary: "nofile 软硬限制、配置语法与排查入口"
+    body: |
+      依据 limits.conf(5)（Linux-PAM pam_limits 模块）：
+      - 配置文件：/etc/security/limits.conf 与 /etc/security/limits.d/*.conf；
+        语法 <domain> <type> <item> <value>；domain 可为用户名/@组名/*通配/uid 范围。
+      - type：hard（root 设定、内核强制、用户不可超过）、soft（用户可在 hard
+        范围内自行调整）、-（同时施加）。
+      - item：nofile 限制最大打开文件描述符数；nproc 限制最大进程数；
+        限制按登录会话施加（非全局）。
+      - 排查 too many open files：确认运行用户/组的 nofile 软硬限制
+        （ulimit -n / prlimit）；用 lsof/ss 检查进程打开的 fd 与连接，
+        定位句柄泄漏（未关闭连接/文件）；按业务调整 limits.conf 或进程启动
+        ulimit；系统级上限见 /proc/sys/fs/file-max（setrlimit(3)）。
+      适用场景：服务运行一段时间后报 too many open files、连接数增长后必现。
+    source_type: official_doc
+    source_ref: "https://man7.org/linux/man-pages/man5/limits.conf.5.html"
+    category: os
+    tags: [os, 文件描述符, ulimit, nofile, limits]
+    confidence: 1.0
+  - id: rag-kb-fe-004
+    title: "前端发布后用户仍看到旧页面（HTTP 缓存未更新）"
+    summary: "新版本上线后用户仍加载旧资源/旧页面——缓存两态与更新策略（hash 文件名 + no-cache 重新验证）"
+    body: |
+      依据 MDN HTTP Caching：
+      - 缓存类型：私有缓存（浏览器，可存个性化响应，需 Cache-Control: private）
+        与共享缓存（代理/CDN/反向代理/Service Worker）。
+      - fresh/stale：存储的响应分新鲜（可重用）与过期（需重新验证）两态，
+        判定标准通常由 Cache-Control 决定。
+      - 启发式缓存：无 Cache-Control 时响应仍可能被存储重用（如 Last-Modified
+        距今一年，重用约存储时间的 10%）——应显式指定 Cache-Control。
+      - 更新策略：静态资源用内容指纹（hash 文件名）+ 长 max-age；HTML 用
+        no-cache 每次重新验证；发布时 HTML 引用新指纹资源即可完成更新。
+      适用场景：发布新版本后用户仍看到旧页面、资源缓存未更新、刷新多次才生效。
+    source_type: official_doc
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching"
+    category: frontend
+    tags: [前端, 缓存, http, cache-control, max-age, 旧页面, 发布]
+    confidence: 1.0
+
+  # ============ 第六批补充（2026-08-11）：弱主题 frontend/account_permission/os 补强 ============
+  - id: rag-kb-fe-005
+    title: "CORS 跨域错误定位（MDN）"
+    summary: "浏览器 CORS 错误识别、预检请求与常见 Reason 对照"
+    body: |
+      依据 MDN（CORS errors）文档：
+      1) 识别：CORS 违规时浏览器控制台显示 Cross-Origin Request Blocked:
+         The Same Origin Policy disallows reading the remote resource at
+         https://some-url-here. (Reason: ...)。出于安全原因，具体失败细节对
+         JavaScript 不可见（代码只知道发生了错误），唯一途径是查看浏览器
+         控制台获取细节。
+      2) 服务端主导：多数 CORS 错误只能在服务端解决，因为服务端控制是否
+         允许跨域访问。
+      3) 客户端可做：
+         - 避免触发预检（preflight）：仅用 GET/HEAD/POST、仅设置
+           CORS-safelisted 请求头（Accept/Content-Language/Content-Type）、
+           Content-Type 仅 application/x-www-form-urlencoded /
+           multipart/form-data / text/plain——简单请求完全跳过预检。
+         - no-cors 模式：不读响应体/头时（埋点 beacon、service worker
+           加载资源）fetch(..., {mode: "no-cors"})，响应为 opaque（status
+           0、头为空、body 不可读）——放弃读取以绕过检查。
+         - 自控代理：不控制远端且远端不设 CORS 头时，经自己控制的服务器
+           转发并附加 CORS 头（增加延迟与依赖）。
+      4) 常见 Reason（Firefox 控制台）：Access-Control-Allow-Origin missing /
+         does not match、Credentials 与 * 冲突（Credential is not supported
+         if ... is '*'）、Allow-Methods/Allow-Headers 缺方法/缺 token、
+         Multiple Access-Control-Allow-Origin not allowed、preflight channel
+         did not succeed。
+      适用场景：前端调另一域名接口报 CORS 错误、浏览器拦截跨域请求。
+    source_type: official_doc
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS/Errors"
+    category: frontend
+    tags: [前端, cors, 跨域, 浏览器, 预检]
+    confidence: 1.0
+  - id: rag-kb-ac-006
+    title: "忘记密码/密码重置安全（OWASP）"
+    summary: "防用户枚举、重置令牌安全与重置流程要点"
+    body: |
+      依据 OWASP Forgot Password Cheat Sheet：
+      - 防用户枚举：对存在与不存在账号返回一致消息；响应时间一致
+        （异步调用或统一逻辑，避免快速退出分支造成时间侧信道）；防自动化
+        刷请求——按账号限流、CAPTCHA 等。
+      - 令牌/验证码要求：密码学安全随机算法生成；足够长防暴力破解；
+        安全存储；一次性使用并在适当时间后过期；未验证有效令牌前不得
+        改变账号状态（如锁定账号——会被用于拒绝已知用户名访问）。
+      - 重置流程：用户确认两次新密码；遵守统一密码策略；按安全实践存储
+        密码；发送重置完成邮件（绝不发送明文密码）；重置后经常规机制登录
+        （不自动登录，避免额外认证/会话复杂度）；询问或自动作废既有会话。
+      - URL 令牌：用 HTTPS；创建重置 URL 不依赖 Host 头（防 Host Header
+        Injection，URL 硬编码或校验信任域名白名单）；重置页加 Referrer
+        Policy noreferrer 防 referrer 泄漏；限流防 URL 令牌暴力尝试。
+      - 安全问题是重置密码的可选附加层，不应作为唯一机制（答案常可猜测/
+        被获取）。
+      适用场景：忘记密码功能可枚举用户、重置令牌被暴力尝试、重置流程不合规。
+    source_type: official_doc
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html"
+    category: account_permission
+    tags: [权限, 认证, 密码重置, 枚举, forgot-password]
+    confidence: 1.0
+  - id: rag-kb-os-005
+    title: "日志轮转配置（logrotate(8)）"
+    summary: "轮转/压缩/删除日志的指令与排查入口"
+    body: |
+      依据 logrotate(8) 手册：
+      - 定位：logrotate 用于轮转、压缩、删除、邮件发送系统日志；每个日志
+        可按 daily/weekly/monthly 或按大小（size）处理；通常作为每日 cron
+        作业（或 systemd 下 logrotate.timer）运行；同一日志一天最多轮转
+        一次，除非按 size 触发且当日多次运行，或用 -f/--force 强制。
+      - 配置示例：
+        /var/log/messages {
+            rotate 5
+            weekly
+            postrotate
+                /usr/bin/killall -HUP syslogd
+            endscript
+        }
+      - 常用指令：
+        rotate count——轮转 count 次后删除/邮寄（count=0 直接删除旧版，
+        count=-1 永不删除（注意 maxage 与性能/磁盘代价））。
+        size 100k/100M/100G——按大小轮转，与时间间隔选项互斥。
+        olddir dir——旧日志移入指定目录（须与日志同物理设备，除非用
+        copy/copytruncate/renamecopy）。
+        missingok——日志缺失时静默跳过（默认 nomissingok 报错）。
+        compress/nocompress——旧版用 gzip 压缩；delaycompress 推迟到下一轮。
+        copytruncate——程序无法被告知关闭日志文件时，复制后原位截断
+        （复制与截断间极小窗口可能丢少量日志）。
+        dateext——旧版加日期后缀 YYYYMMDD 而非数字。
+        su user group——非 root 属主日志用该用户/组轮转（root 下推荐）。
+      - 状态与调试：默认状态文件 /var/lib/logrotate.status；-d/--debug
+        只输出不修改；-f/--force 强制轮转；-s 指定替代状态文件。
+      - 注意：通配符 * 会轮转所有匹配文件（含已轮转的），用 olddir 或更精确
+        的 *.log 规避；systemd 下 logrotate.service 默认 ProtectSystem=full
+        阻止修改 /etc 与 /usr 下的日志。
+      适用场景：日志不轮转越涨越大、磁盘被日志占满、需要配置轮转策略。
+    source_type: official_doc
+    source_ref: "https://man7.org/linux/man-pages/man8/logrotate.8.html"
+    category: os
+    tags: [日志, 轮转, logrotate, compress, 磁盘]
+    confidence: 1.0

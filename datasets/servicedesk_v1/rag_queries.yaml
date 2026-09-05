@@ -1,0 +1,344 @@
+# RAG 评测查询集（第一批：database/network/security）
+# 双标注 ground truth：expected_tickets（历史解决工单）+ expected_kb_articles（知识条目）。
+# 主题明确 query：标注同主题；跨主题/模糊 query：标注多主题相关；负样本：无期望。
+
+queries:
+  # ============ 主题明确 ============
+  - id: rag-q-db-001
+    text: "数据库连接不上，应用报 password authentication failed，密码没改过怎么排查"
+    theme: database
+    expected_tickets: [rag-tkt-db-001]
+    expected_kb_articles: [rag-kb-db-001, rag-kb-db-004]
+  - id: rag-q-db-002
+    text: "postgres 启动失败，端口 5432 被占用，提示 Address already in use"
+    theme: database
+    expected_tickets: [rag-tkt-db-002, rag-tkt-db-005]
+    expected_kb_articles: [rag-kb-db-002]
+  - id: rag-q-db-003
+    text: "RDS 连接超时 Connection timed out，白名单加了还是连不上"
+    theme: database
+    expected_tickets: [rag-tkt-db-003]
+    expected_kb_articles: [rag-kb-db-003, rag-kb-db-004]
+  - id: rag-q-db-004
+    text: "数据库连接数满了 remaining connection slots are reserved"
+    theme: database
+    expected_tickets: [rag-tkt-db-004]
+    expected_kb_articles: [rag-kb-db-003]
+  - id: rag-q-net-001
+    text: "OpenVPN 连不上，报 TLS key negotiation failed within 60 seconds"
+    theme: network
+    expected_tickets: [rag-tkt-net-001]
+    expected_kb_articles: [rag-kb-net-001]
+  - id: rag-q-net-002
+    text: "VPN 能连上但是 ping 不通内网服务器"
+    theme: network
+    expected_tickets: [rag-tkt-net-002, rag-tkt-net-003]
+    expected_kb_articles: [rag-kb-net-001, rag-kb-net-002]
+  - id: rag-q-net-003
+    text: "新服务端口 telnet 不通，防火墙已放行"
+    theme: network
+    expected_tickets: [rag-tkt-net-005]
+    expected_kb_articles: [rag-kb-net-003]
+  - id: rag-q-sec-001
+    text: "MOVEit 文件传输系统有 SQL 注入漏洞吗，怎么确认和修复"
+    theme: security
+    expected_tickets: [rag-tkt-sec-001]
+    expected_kb_articles: [rag-kb-sec-001]
+  - id: rag-q-sec-002
+    text: "服务器被暴力破解 SSH 登录，怎么加固"
+    theme: security
+    expected_tickets: [rag-tkt-sec-002, rag-tkt-sec-006]
+    expected_kb_articles: [rag-kb-sec-002, rag-kb-sec-004]
+  - id: rag-q-sec-003
+    text: "网站 HTTPS 报证书过期，怎么处理"
+    theme: security
+    expected_tickets: [rag-tkt-sec-003, rag-tkt-fe-003]
+    expected_kb_articles: [rag-kb-sec-003]
+
+  # ============ 跨主题 / 模糊 ============
+  - id: rag-q-mix-001
+    text: "生产环境数据库连接超时，应用大量报错，是先查网络还是先查数据库"
+    theme: database+network
+    expected_tickets: [rag-tkt-db-003, rag-tkt-db-004, rag-tkt-net-001]
+    expected_kb_articles: [rag-kb-db-003, rag-kb-db-004, rag-kb-net-001]
+  - id: rag-q-mix-002
+    text: "应用服务启动后端口监听正常但外部访问失败，怀疑是安全组或防火墙问题"
+    theme: network+security
+    expected_tickets: [rag-tkt-net-005]
+    expected_kb_articles: [rag-kb-net-003]
+
+  # ============ 负样本 ============
+  - id: rag-q-neg-001
+    text: "公司下午茶零食采购报销流程是怎么样的"
+    theme: unrelated
+    expected_tickets: []
+    expected_kb_articles: []
+
+  # ============ 第二批：frontend / account_permission / os / middleware / backup ============
+  - id: rag-q-fe-001
+    text: "页面加载很慢，检查发现 DNS 解析耗时高"
+    theme: frontend
+    expected_tickets: [rag-tkt-fe-001, rag-tkt-fe-006]
+    expected_kb_articles: [rag-kb-fe-001, rag-kb-fe-002]
+  - id: rag-q-fe-002
+    text: "前端页面滚动卡顿，主线程占用高"
+    theme: frontend
+    expected_tickets: [rag-tkt-fe-002]
+    expected_kb_articles: [rag-kb-fe-001]
+  - id: rag-q-ac-001
+    text: "用户能通过修改 URL 里的 ID 看到别人的数据，怎么修复"
+    theme: account_permission
+    expected_tickets: [rag-tkt-ac-002, rag-tkt-ac-001]
+    expected_kb_articles: [rag-kb-ac-002, rag-kb-ac-001]
+  - id: rag-q-ac-002
+    text: "新员工开通系统权限的流程怎么走，最小权限怎么分配"
+    theme: account_permission
+    expected_tickets: [rag-tkt-ac-003]
+    expected_kb_articles: [rag-kb-ac-001]
+  - id: rag-q-os-001
+    text: "服务器内存高占用，怀疑是内存泄漏还是缓存"
+    theme: os
+    expected_tickets: [rag-tkt-os-004, rag-tkt-os-002]
+    expected_kb_articles: [rag-kb-os-001, rag-kb-os-002]
+  - id: rag-q-os-002
+    text: "磁盘满了，服务写不进去日志"
+    theme: os
+    expected_tickets: [rag-tkt-os-001, rag-tkt-os-005]
+    expected_kb_articles: [rag-kb-os-002, rag-kb-os-005]
+  - id: rag-q-mw-001
+    text: "nginx 网关 5xx 增多，怎么定位是哪个上游的问题"
+    theme: middleware
+    expected_tickets: [rag-tkt-mw-001]
+    expected_kb_articles: [rag-kb-mw-001, rag-kb-mw-002]
+  - id: rag-q-mw-002
+    text: "error_page 配置了自定义错误页但没生效"
+    theme: middleware
+    expected_tickets: [rag-tkt-mw-002, rag-tkt-mw-005]
+    expected_kb_articles: [rag-kb-mw-002]
+  - id: rag-q-bk-001
+    text: "pg_dump 备份失败，提示没有权限读取表"
+    theme: backup
+    expected_tickets: [rag-tkt-bk-001, rag-tkt-bk-003]
+    expected_kb_articles: [rag-kb-bk-001]
+  - id: rag-q-bk-002
+    text: "从备份恢复到新版本数据库，恢复完对象不见了"
+    theme: backup
+    expected_tickets: [rag-tkt-bk-002, rag-tkt-bk-006]
+    expected_kb_articles: [rag-kb-bk-001, rag-kb-bk-003]
+  - id: rag-q-mix-003
+    text: "一次数据库权限变更后线上开始间歇性报错，时好时坏怎么查"
+    theme: middleware+backup
+    expected_tickets: [rag-tkt-bk-004, rag-tkt-mw-001]
+    expected_kb_articles: [rag-kb-bk-002]
+  - id: rag-q-mix-004
+    text: "服务被 OOM 杀掉和数据库连接超时同时发生，先处理哪个"
+    theme: os+database
+    expected_tickets: [rag-tkt-os-002, rag-tkt-db-004]
+    expected_kb_articles: [rag-kb-os-001, rag-kb-db-003]
+
+  # ============ 优化补齐：语义变体（口语/改写，真实 embedding 考验点） ============
+  - id: rag-q-v-001
+    text: "数据库连不上了，一直报密码不对，但是密码没改过"
+    theme: database
+    expected_tickets: [rag-tkt-db-001]
+    expected_kb_articles: [rag-kb-db-001]
+  - id: rag-q-v-002
+    text: "库起不来，5432 被占了，老说端口被占用"
+    theme: database
+    expected_tickets: [rag-tkt-db-002, rag-tkt-db-005]
+    expected_kb_articles: [rag-kb-db-002]
+  - id: rag-q-v-003
+    text: "VPN 老掉线，提示 TLS 60 秒内没协商成功"
+    theme: network
+    expected_tickets: [rag-tkt-net-001]
+    expected_kb_articles: [rag-kb-net-001]
+  - id: rag-q-v-004
+    text: "有人一直扒服务器，ssh 登录记录全是失败"
+    theme: security
+    expected_tickets: [rag-tkt-sec-002]
+    expected_kb_articles: [rag-kb-sec-004, rag-kb-sec-002]
+  - id: rag-q-v-005
+    text: "网页打不开，f12 看等待连接的时间特别长"
+    theme: frontend
+    expected_tickets: [rag-tkt-fe-003, rag-tkt-fe-007]
+    expected_kb_articles: [rag-kb-fe-001]
+  - id: rag-q-v-006
+    text: "备份老失败，说没权限读表"
+    theme: backup
+    expected_tickets: [rag-tkt-bk-001]
+    expected_kb_articles: [rag-kb-bk-001]
+  - id: rag-q-v-007
+    text: "nginx 一直 502，后端看着没事"
+    theme: middleware
+    expected_tickets: [rag-tkt-mw-001]
+    expected_kb_articles: [rag-kb-mw-001]
+
+  # ============ 优化：易混对（相似文本不同主题，测语义区分度） ============
+  - id: rag-q-cf-001
+    text: "服务启动不了，日志说端口被占用"
+    theme: database
+    expected_tickets: [rag-tkt-db-002]
+    expected_kb_articles: [rag-kb-db-002]
+  - id: rag-q-cf-002
+    text: "内存一直涨最后进程没了"
+    theme: os
+    expected_tickets: [rag-tkt-os-002]
+    expected_kb_articles: [rag-kb-os-001]
+
+  # ============ 负样本扩充（unrelated + 硬负样本） ============
+  - id: rag-q-neg-002
+    text: "周末团建去哪玩，有没有推荐方案"
+    theme: unrelated
+    expected_tickets: []
+    expected_kb_articles: []
+  - id: rag-q-neg-003
+    text: "公司班车时刻表在哪里看"
+    theme: unrelated
+    expected_tickets: []
+    expected_kb_articles: []
+  - id: rag-q-neg-004
+    text: "今年年终奖怎么算的"
+    theme: unrelated
+    expected_tickets: []
+    expected_kb_articles: []
+  - id: rag-q-neg-005
+    text: "工位空调太冷，能不能调"
+    theme: unrelated
+    expected_tickets: []
+    expected_kb_articles: []
+  - id: rag-q-neg-006
+    text: "新员工入职体检去哪家医院"
+    theme: unrelated
+    expected_tickets: []
+    expected_kb_articles: []
+  - id: rag-q-hard-001
+    text: "服务启动失败，日志说 bind 失败"
+    theme: middleware
+    expected_tickets: [rag-tkt-db-002]
+    expected_kb_articles: [rag-kb-db-002]
+  - id: rag-q-hard-002
+    text: "连接数满了，新连接全部被拒"
+    theme: database
+    expected_tickets: [rag-tkt-db-004]
+    expected_kb_articles: [rag-kb-db-003]
+  - id: rag-q-hard-003
+    text: "证书链不完整，部分客户端访问失败"
+    theme: security
+    expected_tickets: [rag-tkt-sec-003]
+    expected_kb_articles: [rag-kb-sec-003]
+
+  # ============ 第四批：覆盖第三批新工单与孤儿 KB（2026-08-10） ============
+  - id: rag-q-db-005
+    text: "psql 连接数据库报 Connection refused，服务器是不是没在监听"
+    theme: database
+    expected_tickets: [rag-tkt-db-009]
+    expected_kb_articles: [rag-kb-db-005]
+  - id: rag-q-net-004
+    text: "ECS 安全组规则加了还是连不上端口，ping 能通"
+    theme: network
+    expected_tickets: [rag-tkt-net-008]
+    expected_kb_articles: [rag-kb-net-005]
+  - id: rag-q-sec-004
+    text: "登录前后 session id 一样，是不是会话固定攻击，怎么防御"
+    theme: security
+    expected_tickets: [rag-tkt-sec-007]
+    expected_kb_articles: [rag-kb-sec-005]
+  - id: rag-q-fe-003
+    text: "页面打开一直白屏，要等脚本加载完才显示"
+    theme: frontend
+    expected_tickets: [rag-tkt-fe-008]
+    expected_kb_articles: [rag-kb-fe-003]
+  - id: rag-q-ac-003
+    text: "第三方应用申请的 OAuth 权限范围太大，怎么限制 scope"
+    theme: account_permission
+    expected_tickets: [rag-tkt-ac-007]
+    expected_kb_articles: [rag-kb-ac-003]
+  - id: rag-q-os-003
+    text: "cron 定时任务到点没跑，手动执行是正常的"
+    theme: os
+    expected_tickets: [rag-tkt-os-007]
+    expected_kb_articles: [rag-kb-os-003]
+  - id: rag-q-bk-003
+    text: "用 -Fc 自定义格式备份的库，psql 恢复不了"
+    theme: backup
+    expected_tickets: [rag-tkt-bk-007]
+    expected_kb_articles: [rag-kb-bk-001, rag-kb-bk-003]
+  - id: rag-q-bk-004
+    text: "误删了一大批客户站点数据，批量删除怎么防范和恢复"
+    theme: backup
+    expected_tickets: [rag-tkt-bk-008]
+    expected_kb_articles: [rag-kb-bk-004]
+  - id: rag-q-mw-003
+    text: "上传大文件报 413 Request Entity Too Large，小文件正常"
+    theme: middleware
+    expected_tickets: [rag-tkt-mw-006]
+    expected_kb_articles: [rag-kb-mw-004]
+  - id: rag-q-mw-004
+    text: "WebSocket 走 nginx 反向代理就连不上，直连后端正常"
+    theme: middleware
+    expected_tickets: [rag-tkt-mw-007]
+    expected_kb_articles: [rag-kb-mw-005]
+  - id: rag-q-mw-005
+    text: "网站被 HTTP/2 Rapid Reset 攻击，大量连接被快速重置"
+    theme: middleware
+    expected_tickets: [rag-tkt-mw-008]
+    expected_kb_articles: [rag-kb-mw-003]
+
+  # ============ 第五批补充（2026-08-10）：弱主题变体 + 混合主题 ============
+  - id: rag-q-v-008
+    text: "API 接口改个 ID 就能查到别人的数据，是不是越权漏洞"
+    theme: account_permission
+    expected_tickets: [rag-tkt-ac-009, rag-tkt-ac-002]
+    expected_kb_articles: [rag-kb-ac-005, rag-kb-ac-001]
+  - id: rag-q-v-009
+    text: "服务跑几天就报 too many open files，重启就好了"
+    theme: os
+    expected_tickets: [rag-tkt-os-008]
+    expected_kb_articles: [rag-kb-os-004]
+  - id: rag-q-v-010
+    text: "发了新版本用户还看到旧页面，刷新也没用"
+    theme: frontend
+    expected_tickets: [rag-tkt-fe-009]
+    expected_kb_articles: [rag-kb-fe-004]
+  - id: rag-q-mix-005
+    text: "服务老被 OOM 杀掉自动重启，网关跟着一直 502"
+    theme: os+middleware
+    expected_tickets: [rag-tkt-os-002, rag-tkt-mw-001]
+    expected_kb_articles: [rag-kb-os-001, rag-kb-mw-001]
+  - id: rag-q-mix-006
+    text: "数据库账号被外网暴力尝试登录，密码还是弱口令"
+    theme: database+security
+    expected_tickets: [rag-tkt-sec-006, rag-tkt-sec-002]
+    expected_kb_articles: [rag-kb-sec-004, rag-kb-sec-002]
+
+  # ============ 第六批补充（2026-08-11）：弱主题 frontend/account_permission/os 主查询 + 语义变体 ============
+  - id: rag-q-fe-004
+    text: "前端页面调用另一个域名的接口报 CORS 错误，浏览器拦截了请求怎么排查"
+    theme: frontend
+    expected_tickets: [rag-tkt-fe-010]
+    expected_kb_articles: [rag-kb-fe-005]
+  - id: rag-q-v-011
+    text: "控制台提示 Cross-Origin Request Blocked，前端跨域请求被拒绝"
+    theme: frontend
+    expected_tickets: [rag-tkt-fe-010]
+    expected_kb_articles: [rag-kb-fe-005]
+  - id: rag-q-ac-004
+    text: "忘记密码功能返回的提示能区分账号是否存在，怀疑可以枚举用户"
+    theme: account_permission
+    expected_tickets: [rag-tkt-ac-010]
+    expected_kb_articles: [rag-kb-ac-006]
+  - id: rag-q-v-012
+    text: "重置密码的链接一直被人尝试，好像能暴破出有效账号"
+    theme: account_permission
+    expected_tickets: [rag-tkt-ac-010]
+    expected_kb_articles: [rag-kb-ac-006]
+  - id: rag-q-os-004
+    text: "应用日志一直不轮转越涨越大，磁盘快满了，怎么配 logrotate"
+    theme: os
+    expected_tickets: [rag-tkt-os-009]
+    expected_kb_articles: [rag-kb-os-005]
+  - id: rag-q-v-013
+    text: "日志文件太大把磁盘占满了，轮转好像没生效，怎么查"
+    theme: os
+    expected_tickets: [rag-tkt-os-009]
+    expected_kb_articles: [rag-kb-os-005]

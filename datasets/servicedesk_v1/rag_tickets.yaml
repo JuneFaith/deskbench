@@ -1,0 +1,610 @@
+# RAG 评测工单语料（第一批：database/network/security）
+# 故障模式与解法要素来自真实公开来源（source_ref 标注出处），按本项目 schema 规范化。
+# 状态统一 resolved（评测检索对象）。
+
+tickets:
+  # ============ database ============
+  - id: rag-tkt-db-001
+    title: "应用连库报 FATAL: password authentication failed"
+    description: "业务应用夜间批量任务开始后频繁报 password authentication failed，密码未变更过，客户端与服务端均无法确认失败细节"
+    category: database
+    tags: [postgres, 认证, 密码]
+    priority: P1
+    resolution: "按官方排查路径核对：确认 pg_hba.conf 的认证方法（scram-sha-256）与客户端协商一致，核对密码是否正确；服务端日志可能比客户端报错包含更多失败细节（如账户锁定、Kerberos/ident 组件状态），先查服务器日志定位"
+    source_ref: "https://www.postgresql.org/docs/17/client-authentication-problems.html"
+  - id: rag-tkt-db-002
+    title: "PostgreSQL 启动报 Address already in use"
+    description: "数据库服务器重启时启动失败，日志显示 could not bind IPv4 address \"127.0.0.1\": Address already in use，端口 5432 疑似被占用"
+    category: database
+    tags: [postgres, 启动, 端口]
+    priority: P2
+    resolution: "官方文档：该错误通常表示同端口已有 postmaster 在运行；若无实例运行则等待几秒重试。检查 postmaster.pid（数据目录内）确认是否多实例冲突；排查占用 5432 的其他进程"
+    source_ref: "https://www.postgresql.org/docs/17/server-start.html"
+  - id: rag-tkt-db-003
+    title: "云上 RDS PostgreSQL 连接超时 Connection timed out"
+    description: "从应用服务器连接 RDS 实例报 could not connect to server: Connection timed out，内网地址 ping 不通"
+    category: database
+    tags: [postgres, rds, 网络, 白名单]
+    priority: P1
+    resolution: "按云厂商排查路径：确认连接地址类型（内网/外网）与网络类型一致（同地域、同 VPC）；检查客户端 IP 是否加入白名单或白名单分组是否正确；确认实例未因过期/磁盘满被锁定"
+    source_ref: "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/what-do-i-do-if-i-fail-to-connect-to-an-apsaradb-rds-instance"
+  - id: rag-tkt-db-004
+    title: "连接报 remaining connection slots are reserved"
+    description: "生产库连接数打满，新连接报 FATAL: remaining connection slots are reserved for non-replication superuser connections，大量业务报错"
+    category: database
+    tags: [postgres, 连接数, 连接池]
+    priority: P0
+    resolution: "连接数满：关闭占用连接数的进程，排查应用连接池泄漏与慢查询长时间占用连接；确认 max_connections 与实际连接水位"
+    source_ref: "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/what-do-i-do-if-i-fail-to-connect-to-an-apsaradb-rds-instance"
+  - id: rag-tkt-db-005
+    title: "数据库启动失败 could not create any TCP/IP sockets"
+    description: "实例重启后 FATAL: could not create any TCP/IP sockets，疑似监听端口被保留或冲突"
+    category: database
+    tags: [postgres, 启动, socket]
+    priority: P2
+    resolution: "官方文档：could not create any TCP/IP sockets 通常与端口占用相关（Address already in use 变体）；检查是否试图在保留端口上启动，确认监听配置与端口占用，查看服务器日志或前台启动观察报错"
+    source_ref: "https://www.postgresql.org/docs/17/server-start.html"
+
+  # ============ network ============
+  - id: rag-tkt-net-001
+    title: "OpenVPN 客户端报 TLS key negotiation failed"
+    description: "远程办公用户连接公司 VPN 失败，客户端报 TLS Error: TLS key negotiation failed to occur within 60 seconds"
+    category: network
+    tags: [vpn, openvpn, tls, 连接]
+    priority: P1
+    resolution: "官方排查：该错误表示客户端无法连通服务器。确认客户端使用正确的 hostname/IP 与端口；确认服务器防火墙放行 UDP 1194（或配置的端口）；确认网关端口转发规则正确指向 VPN 服务器"
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+  - id: rag-tkt-net-002
+    title: "VPN 连接成功但 ping 不通内网"
+    description: "客户端显示 Initialization Sequence Completed，但 ping 内网服务器失败"
+    category: network
+    tags: [vpn, openvpn, ping, 路由]
+    priority: P2
+    resolution: "官方排查：ping 失败通常表示服务器或客户端防火墙在过滤 TUN/TAP 接口上的 VPN 流量；检查 TUN/TAP 接口是否被防火墙过滤，客户端使用路由模式时先 ping 网关 10.8.0.1 验证隧道连通"
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+  - id: rag-tkt-net-003
+    title: "VPN 服务器日志显示单向连接 TLS initial packet"
+    description: "连接在 startup 时卡住，服务器日志显示 TLS: Initial packet from ... 但客户端日志无对应行"
+    category: network
+    tags: [vpn, openvpn, 单向连接]
+    priority: P2
+    resolution: "官方文档：该现象表示只有客户端到服务器方向的连接，服务器到客户端方向被阻断——检查服务器侧防火墙与网关是否放行回程流量（UDP 1194 双向）"
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+  - id: rag-tkt-net-004
+    title: "DNS 解析超时导致业务域名不可访问"
+    description: "多个内部系统域名解析超时，nslookup 无响应，浏览器访问报 DNS_PROBE_FINISHED_NXDOMAIN"
+    category: network
+    tags: [dns, 解析, 超时]
+    priority: P1
+    resolution: "DNS 是几乎所有网络连接的前置依赖（ISC BIND 官方概述）。排查：确认 DNS 服务（BIND 等）运行状态与配置（转发/缓存/监听），检查解析链路各环节可达性，查看解析日志定位超时环节"
+    source_ref: "https://www.isc.org/bind/"
+  - id: rag-tkt-net-005
+    title: "防火墙放行后端口仍不可达"
+    description: "新服务上线需开放 TCP 端口，防火墙规则已添加但外部仍无法访问"
+    category: network
+    tags: [防火墙, 端口, 连通性]
+    priority: P2
+    resolution: "分层排查：服务监听地址（0.0.0.0 vs 127.0.0.1）、主机防火墙规则、网关端口转发；若规则正确仍丢包，检查连接跟踪（conntrack）表——nf_conntrack_max 上限、INVALID 状态包（校验和不符）、已建立连接未被跟踪（tcp_loose）等"
+    source_ref: "https://docs.kernel.org/networking/nf_conntrack-sysctl.html"
+
+  # ============ security ============
+  - id: rag-tkt-sec-001
+    title: "MOVEit Transfer SQL 注入漏洞排查"
+    description: "公网文件传输系统版本在受影响范围内，安全团队要求确认是否存在 CVE-2023-34362 利用痕迹并完成修复"
+    category: security
+    tags: [安全, sql注入, cve, moveit]
+    priority: P0
+    resolution: "该 CVE 为 MOVEit Transfer 未认证 SQL 注入，2023 年 5-6 月在野外被利用：升级到修复版本（2021.0.6 等对应版本线），排查数据库异常访问痕迹，检查 HTTP/HTTPS 入口的异常请求"
+    source_ref: "https://nvd.nist.gov/vuln/detail/CVE-2023-34362"
+  - id: rag-tkt-sec-002
+    title: "公网服务器暴力破解登录尝试"
+    description: "服务器日志出现大量 SSH 登录失败尝试，来源 IP 分散，疑似撞库或暴力破解"
+    category: security
+    tags: [安全, 暴力破解, ssh]
+    priority: P2
+    resolution: "加固措施：禁用密码登录改用密钥认证、限制来源 IP、配置失败次数锁定，检查是否存在弱口令账户并重置"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+  - id: rag-tkt-sec-003
+    title: "SSL 证书过期导致 HTTPS 服务不可用"
+    description: "站点 HTTPS 访问报证书过期错误，浏览器提示 NET::ERR_CERT_DATE_INVALID"
+    category: security
+    tags: [安全, ssl, 证书]
+    priority: P1
+    resolution: "重新申请/续期证书（Let's Encrypt 等 CA，certbot 官方指引：变更证书域/续期流程）并部署到服务端；验证证书链完整性与到期时间；配置自动化续期（certbot renew）避免再次过期"
+    source_ref: "https://certbot.eff.org/change-cert-domain"
+  - id: rag-tkt-sec-004
+    title: "越权访问排查：普通账户访问管理接口"
+    description: "安全扫描发现普通用户可访问部分管理接口，返回数据疑似越权"
+    category: security
+    tags: [安全, 越权, 鉴权]
+    priority: P1
+    resolution: "检查接口鉴权链路：确认服务端对每个请求执行授权校验而非仅前端隐藏入口，检查角色/权限映射配置与默认拒绝策略"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+
+  # ============ frontend ============
+  - id: rag-tkt-fe-001
+    title: "页面加载缓慢，DNS 解析耗时明显"
+    description: "首屏加载慢，性能分析显示 DNS lookup 阶段耗时高，页面引用多个不同域名的资源（字体/图片/脚本/统计）"
+    category: frontend
+    tags: [性能, dns, 加载]
+    priority: P2
+    resolution: "DNS 查询每个唯一 hostname 发生一次（首次访问后缓存）。优化：减少跨域资源域名数量、利用 DNS 缓存与预解析（preconnect/dns-prefetch）、移动网络场景降低 DNS 依赖"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+  - id: rag-tkt-fe-002
+    title: "首屏交互卡顿，主线程繁忙"
+    description: "页面滚动和点击响应慢，渲染卡顿，开发工具显示主线程长时间被任务占用"
+    category: frontend
+    tags: [性能, 主线程, 渲染]
+    priority: P2
+    resolution: "浏览器主要单线程执行任务：最小化主线程职责（长任务拆分、避免阻塞渲染的同步操作），确保渲染流畅且交互响应及时；用性能面板定位长任务"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+  - id: rag-tkt-fe-003
+    title: "HTTPS 站点 TLS 握手慢"
+    description: "站点访问延迟高，连接建立阶段耗时明显，用户反馈首次访问特别慢"
+    category: frontend
+    tags: [性能, tls, https]
+    priority: P2
+    resolution: "HTTPS 需额外 TLS 协商握手（协商加密套件与验证服务器）。优化：TLS 会话复用、HTTP/2/3、会话缓存，减少握手开销"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+  - id: rag-tkt-fe-004
+    title: "前端构建失败，生产发布阻塞"
+    description: "CI 构建报错无法产出产物，发布流程阻塞，本地构建可复现"
+    category: frontend
+    tags: [前端, 构建, ci]
+    priority: P1
+    resolution: "按构建报错类型定位（vite 官方 troubleshooting）：模块解析失败——ESM only 包被 require 加载报 ERR_REQUIRE_ESM，需改用 import 或配置 type:module；文件监视器超限——ENOSPC: System limit for number of file watchers reached，提高 sysctl fs.inotify 与 ulimit 限制；CLI 模块路径异常——项目路径含特殊字符（如 &）导致 npm 无法解析"
+    source_ref: "https://vitejs.dev/guide/troubleshooting"
+  - id: rag-tkt-fe-005
+    title: "接口 500 频发导致前端报错"
+    description: "前端页面频繁报接口错误，后端网关返回 5xx，业务可用性下降"
+    category: frontend
+    tags: [前端, api, 5xx]
+    priority: P1
+    resolution: "区分前端展示问题与后端故障：抓取错误响应与网关日志定位上游；5xx 排查参考网关层调试手段（error_page 捕获、日志采样）"
+    source_ref: "https://blog.nginx.org/blog/capturing-5xx-errors-debug-server"
+
+  # ============ account_permission ============
+  - id: rag-tkt-ac-001
+    title: "普通用户可访问管理接口（越权）"
+    description: "安全测试发现普通用户调用管理接口可返回敏感数据，疑似 Broken Access Control"
+    category: account_permission
+    tags: [权限, 越权, 鉴权]
+    priority: P1
+    resolution: "服务端每个请求强制授权校验（不依赖前端隐藏）；最小权限原则水平+垂直应用；参考 OWASP 授权备忘单的默认拒绝与角色映射实践"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+  - id: rag-tkt-ac-002
+    title: "用户 A 能查看用户 B 的数据（水平提权）"
+    description: "用户反馈可访问他人订单数据，修改 URL 中 ID 后返回他人信息"
+    category: account_permission
+    tags: [权限, 水平提权, 数据隔离]
+    priority: P0
+    resolution: "对象级授权缺失：确认资源访问时校验当前用户对目标对象的授权（属主/共享关系），而非仅校验登录态；补充对象级权限测试"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+  - id: rag-tkt-ac-003
+    title: "员工权限申请流程阻塞"
+    description: "新员工入职需要开通系统权限，申请流程审批停滞，业务无法开展"
+    category: account_permission
+    tags: [权限, 流程]
+    priority: P2
+    resolution: "权限申请按最小权限分配，审批链路逐级确认；使用可追踪的申请工单记录权限变更，定期复核存量权限"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+  - id: rag-tkt-ac-004
+    title: "SSO 登录失败，无法访问内部系统"
+    description: "员工通过 SSO 单点登录报错无法进入系统，其他系统可正常登录"
+    category: account_permission
+    tags: [权限, sso, 登录]
+    priority: P1
+    resolution: "Keycloak 官方概述：作为 OAuth2/OIDC/SAML 兼容服务器可保护任意应用；优先利用应用生态（框架/反向代理）已有的协议支持，客户端适配器仅作最后手段。排查 SSO 链路：确认认证协议配置（OIDC/SAML）与回调、角色映射与授权策略——区分认证失败与授权失败"
+    source_ref: "https://www.keycloak.org/securing-apps/overview"
+
+  # ============ os ============
+  - id: rag-tkt-os-001
+    title: "磁盘空间满导致服务写入失败"
+    description: "服务日志报磁盘空间不足，写入失败，df 显示根分区使用率 100%"
+    category: os
+    tags: [磁盘, 空间]
+    priority: P1
+    resolution: "定位大文件与日志增长源（du 逐层排查），清理归档并配置日志轮转；确认分区挂载与 inode 使用情况"
+    source_ref: "https://man7.org/linux/man-pages/man1/du.1.html"
+  - id: rag-tkt-os-002
+    title: "内存不足触发 OOM，服务被 kill"
+    description: "应用进程被 OOM killer 终止，系统日志显示 out of memory，业务中断"
+    category: os
+    tags: [内存, oom]
+    priority: P0
+    resolution: "排查内存压力来源：进程占用与泄漏（内存持续增长）、页缓存与匿名内存分布；内核在内存耗尽时经回收与 OOM killer 终止进程——定位高占用进程并治理"
+    source_ref: "https://docs.kernel.org/admin-guide/mm/concepts.html"
+  - id: rag-tkt-os-003
+    title: "CPU 使用率持续高位"
+    description: "服务器 CPU 长时间 100%，服务响应变慢，未发现明显业务增长"
+    category: os
+    tags: [cpu, 性能]
+    priority: P2
+    resolution: "用 top 动态查看系统摘要（负载、CPU 状态）与进程/线程列表，定位高 CPU 消耗进程并按 CPU 排序；top 的字段/排序可交互配置（h 帮助、q 退出）；区分用户态与内核态 CPU 开销，排查循环/空转任务"
+    source_ref: "https://man7.org/linux/man-pages/man1/top.1.html"
+  - id: rag-tkt-os-004
+    title: "free 显示内存占用高，业务无明显增长"
+    description: "运维看到内存使用率 90%+ 报警，但业务进程实际占用不高，怀疑内存泄漏"
+    category: os
+    tags: [内存, 页缓存]
+    priority: P2
+    resolution: "区分页缓存与匿名内存：页缓存（cache）可在内存压力下被回收，不直接代表业务占用；用 free/内存统计确认构成，评估是否需调整内核回收策略"
+    source_ref: "https://docs.kernel.org/admin-guide/mm/concepts.html"
+
+  # ============ middleware ============
+  - id: rag-tkt-mw-001
+    title: "网关 5xx 频发，上游间歇性失败"
+    description: "Nginx 反向代理频繁返回 502/504，上游应用间歇性不可用，用户投诉增多"
+    category: middleware
+    tags: [nginx, 5xx, 网关]
+    priority: P1
+    resolution: "生产 5xx 调试困难：可用官方推荐的 Debug Server 方案——error_page 将失败请求重试到专用调试上游（只接收错误请求），其日志聚焦错误事件，缩小定位范围；启用调试日志/性能剖析定位上游故障"
+    source_ref: "https://blog.nginx.org/blog/capturing-5xx-errors-debug-server"
+  - id: rag-tkt-mw-002
+    title: "error_page 配置未生效"
+    description: "配置了 error_page 自定义错误页但访问仍显示默认 5xx 页面"
+    category: middleware
+    tags: [nginx, error_page]
+    priority: P2
+    resolution: "检查 error_page 指令作用域（http/server/location）与页面文件路径、权限；确认是代理产生的 5xx（proxy_intercept_errors 需开启才能拦截上游错误）"
+    source_ref: "https://nginx.org/en/docs/http/ngx_http_core_module.html"
+  - id: rag-tkt-mw-003
+    title: "上游并发高峰 5xx 雪崩"
+    description: "大促流量高峰网关 5xx 增多，上游被打满，需要保护"
+    category: middleware
+    tags: [nginx, 限流, 上游]
+    priority: P1
+    resolution: "对上游做连接/并发限制（如 server 指令 max_conns 限制转发到调试或受限上游的并发连接），避免雪崩；配置合理的超时与重试策略"
+    source_ref: "https://blog.nginx.org/blog/capturing-5xx-errors-debug-server"
+
+  # ============ backup ============
+  - id: rag-tkt-bk-001
+    title: "数据库备份失败：权限不足"
+    description: "定时备份任务报权限错误，pg_dump 无法读取部分表，备份不完整"
+    category: backup
+    tags: [备份, postgres, 权限]
+    priority: P1
+    resolution: "pg_dump 无特殊权限，需对要备份的表有读权限——整库备份几乎必须用超级用户运行；或按 schema/表部分备份（-n schema / -t table）"
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+  - id: rag-tkt-bk-002
+    title: "备份恢复演练：跨版本恢复失败"
+    description: "演练从备份恢复数据库到新版本实例，恢复后对象与权限缺失"
+    category: backup
+    tags: [备份, 恢复, postgres]
+    priority: P2
+    resolution: "pg_dump 输出可加载到新版本（文件级备份与归档则版本相关）；恢复前确保对象属主用户已存在（否则对象重建失败）；文本转储用 psql -X < dumpfile，需先建库（createdb -T template0）"
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+  - id: rag-tkt-bk-003
+    title: "备份任务失败：连接配置错误"
+    description: "远程备份连不上目标库，pg_dump 报连接失败，需确认连接参数"
+    category: backup
+    tags: [备份, postgres, 连接]
+    priority: P2
+    resolution: "pg_dump 是普通客户端程序，用 -h host / -p port 指定服务器，默认取 PGHOST/PGPORT 环境变量；连接受正常客户端认证机制约束（pg_hba.conf）"
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+  - id: rag-tkt-bk-004
+    title: "变更引发全局故障复盘"
+    description: "一次数据库权限变更导致配置产物异常并全局传播，业务大面积受影响，需要复盘与流程改进"
+    category: backup
+    tags: [变更, 复盘, 故障]
+    priority: P1
+    resolution: "参照公开故障复盘流程（如 Cloudflare 2025-11-18 复盘）：识别变更→确认产物异常→停止异常产物传播→替换为已知良好版本→强制重启受影响组件→逐组件恢复并验证"
+    source_ref: "https://blog.cloudflare.com/18-november-2025-outage/"
+
+  # ============ 优化补齐：database 补充 ============
+  - id: rag-tkt-db-006
+    title: "连接报 no pg_hba.conf entry"
+    description: "新网段主机连接数据库失败，报 FATAL: no pg_hba.conf entry for host，确认已连通服务器但被配置拒绝"
+    category: database
+    tags: [postgres, 认证, pg_hba]
+    priority: P2
+    resolution: "已连通但 pg_hba.conf 无匹配条目：检查 host 记录顺序（首条匹配生效）与 address/method 列；新增网段记录后 pg_ctl reload（无需重启）"
+    source_ref: "https://www.postgresql.org/docs/17/client-authentication-problems.html"
+  - id: rag-tkt-db-007
+    title: "连接报 user does not exist"
+    description: "应用连接数据库报 FATAL: user does not exist，角色未找到"
+    category: database
+    tags: [postgres, 认证, 角色]
+    priority: P2
+    resolution: "指示的数据库用户名不存在：创建角色或修正连接使用的用户名；注意未指定库名时默认等于用户名"
+    source_ref: "https://www.postgresql.org/docs/17/client-authentication-problems.html"
+  - id: rag-tkt-db-008
+    title: "云上 RDS 实例被锁定无法连接"
+    description: "RDS 实例无法连接，控制台显示实例被锁定，报错提示 rds-deny-access"
+    category: database
+    tags: [postgres, rds, 锁定]
+    priority: P0
+    resolution: "实例因过期或磁盘满被锁定：登录控制台确认锁定原因——过期则续费解锁，磁盘满则扩容磁盘后自动解锁"
+    source_ref: "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/what-do-i-do-if-i-fail-to-connect-to-an-apsaradb-rds-instance"
+
+  # ============ 优化补齐：network 补充 ============
+  - id: rag-tkt-net-006
+    title: "VPN 客户端初始化完成但有错误"
+    description: "Windows 客户端连接显示 Initialization Sequence Completed with errors，隧道未真正可用"
+    category: network
+    tags: [vpn, openvpn, windows]
+    priority: P2
+    resolution: "官方文档：该错误常见于 DHCP client 服务未运行或第三方个人防火墙不兼容（XP SP2 时代典型）——启动 DHCP client 服务并确认防火墙兼容"
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+  - id: rag-tkt-net-007
+    title: "VPN 桥接模式内网不通"
+    description: "dev tap 桥接模式 VPN 连接成功但无法访问服务器侧以太网子网主机"
+    category: network
+    tags: [vpn, openvpn, 桥接]
+    priority: P2
+    resolution: "桥接模式（dev tap）应 ping 服务器以太网子网内主机验证；失败检查 TUN/TAP 接口是否被防火墙过滤（服务器与客户端两侧）"
+    source_ref: "https://openvpn.net/community-docs/starting-up-the-vpn-and-testing-for-initial-connectivity.html"
+
+  # ============ 优化补齐：security 补充 ============
+  - id: rag-tkt-sec-005
+    title: "认证失败提示泄露用户名存在性"
+    description: "登录接口对不同用户名返回不同错误提示，可被用于枚举有效账户"
+    category: security
+    tags: [安全, 认证, 枚举]
+    priority: P2
+    resolution: "统一认证失败提示（不区分用户不存在/密码错误）防止用户名枚举；结合账户锁定/速率限制缓解暴力破解（OWASP 认证实践）"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+  - id: rag-tkt-sec-006
+    title: "弱口令账户被批量撞库"
+    description: "安全扫描发现多个账户使用弱口令，攻击者批量尝试登录"
+    category: security
+    tags: [安全, 弱口令, 密码]
+    priority: P1
+    resolution: "强制弱口令账户重置；启用多因素认证与失败尝试限制；最小权限分配降低单账户泄露影响（OWASP 认证与授权实践）"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+
+  # ============ 优化补齐：frontend 补充 ============
+  - id: rag-tkt-fe-006
+    title: "页面引用多域名资源加载慢"
+    description: "字体/图片/脚本/统计来自多个域名，每次加载多次 DNS 查询，移动网络下首屏明显慢"
+    category: frontend
+    tags: [性能, dns, 移动端]
+    priority: P2
+    resolution: "DNS 查询按唯一 hostname 发生（首次后缓存）：合并资源域名减少查询次数；移动网络场景 DNS 往返延迟更显著"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+  - id: rag-tkt-fe-007
+    title: "网络请求建立连接耗时高"
+    description: "性能分析显示连接建立阶段（TCP 握手）耗时高，每次请求都重新建立连接"
+    category: frontend
+    tags: [性能, tcp, 连接]
+    priority: P2
+    resolution: "TCP 三次握手（SYN-SYN-ACK）每次连接产生往返：启用连接复用（keep-alive/HTTP2）减少新建连接次数"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+
+  # ============ 优化补齐：account_permission 补充 ============
+  - id: rag-tkt-ac-005
+    title: "存量权限过大，需要最小权限审计"
+    description: "合规检查要求复核所有账号权限，发现大量离职/转岗员工仍保留高权限"
+    category: account_permission
+    tags: [权限, 审计, 最小权限]
+    priority: P2
+    resolution: "按最小权限原则水平+垂直复核存量权限：回收离职/转岗账号权限，按职责最小化分配；权限变更留痕可追溯（OWASP 授权实践）"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+  - id: rag-tkt-ac-006
+    title: "新系统接入 SSO 失败"
+    description: "内部新系统配置 SSO 单点登录后无法完成认证流程，回调异常"
+    category: account_permission
+    tags: [sso, 接入, 认证]
+    priority: P2
+    resolution: "按 Keycloak 官方规划指引：确认应用技术栈支持的协议（OAuth2/OIDC/SAML）与 IdP 侧配置一致（客户端 ID/密钥/回调）；优先复用框架或反向代理已有的协议支持避免供应商锁定；客户端适配器仅在生态无支持时使用"
+    source_ref: "https://www.keycloak.org/securing-apps/overview"
+
+  # ============ 优化补齐：os 补充 ============
+  - id: rag-tkt-os-005
+    title: "inode 耗尽无法创建文件"
+    description: "df 显示磁盘有剩余但服务无法创建文件，报 No space left on device"
+    category: os
+    tags: [磁盘, inode]
+    priority: P1
+    resolution: "磁盘空间与 inode 分别统计：小文件过多会耗尽 inode（df -i 确认）；定位小文件目录清理或迁移"
+    source_ref: "https://man7.org/linux/man-pages/man1/du.1.html"
+  - id: rag-tkt-os-006
+    title: "内存压力下系统性能骤降"
+    description: "内存使用高时系统响应骤降，怀疑回收频繁或交换抖动"
+    category: os
+    tags: [内存, 回收, 性能]
+    priority: P2
+    resolution: "内核在内存压力下回收页缓存/匿名内存：确认回收与交换是否频繁（swap 使用/回收统计），定位高占用进程；页缓存可在压力下回收不代表泄漏"
+    source_ref: "https://docs.kernel.org/admin-guide/mm/concepts.html"
+
+  # ============ 优化补齐：middleware 补充 ============
+  - id: rag-tkt-mw-004
+    title: "5xx 尖峰压垮调试服务器"
+    description: "使用 Debug Server 方案后发现错误高峰时调试服务器被压垮"
+    category: middleware
+    tags: [nginx, 调试, 限流]
+    priority: P2
+    resolution: "官方方案：用 server 指令 max_conns 限制转发到调试服务器的并发连接数，防止错误尖峰压垮它；若某 5xx 在调试服务器不重现，可能是上游资源耗尽而非软件 bug"
+    source_ref: "https://blog.nginx.org/blog/capturing-5xx-errors-debug-server"
+  - id: rag-tkt-mw-005
+    title: "上游 5xx 未被自定义错误页拦截"
+    description: "配置 error_page 处理 502 但用户仍看到网关默认错误页"
+    category: middleware
+    tags: [nginx, error_page, 代理]
+    priority: P2
+    resolution: "代理上游产生的 5xx 需 proxy_intercept_errors on 才会被 error_page 拦截；确认指令作用域覆盖当前 location"
+    source_ref: "https://nginx.org/en/docs/http/ngx_http_core_module.html"
+
+  # ============ 优化补齐：backup 补充 ============
+  - id: rag-tkt-bk-005
+    title: "超大库全量备份耗时过长"
+    description: "生产库体积大，pg_dump 全量备份耗时过长影响窗口，考虑部分或并行备份"
+    category: backup
+    tags: [备份, postgres, 性能]
+    priority: P2
+    resolution: "可仅备份部分（-n schema / -t table 指定范围）；pg_dump 转储期间不阻塞其他操作（除排他锁操作），内部一致快照"
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+  - id: rag-tkt-bk-006
+    title: "恢复后对象所有权丢失"
+    description: "从 SQL 转储恢复后部分对象无属主或权限缺失，报错对象创建失败"
+    category: backup
+    tags: [备份, 恢复, 权限]
+    priority: P2
+    resolution: "恢复前所有对象属主/被授权用户必须已存在，否则对象重建失败；文本转储恢复用 psql -X（默认设置）并先创建目标库（createdb -T template0）"
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+
+  # ============ 第三批补充（2026-08-10）：database 补充 ============
+  - id: rag-tkt-db-009
+    title: "客户端连接报 Connection refused"
+    description: "psql 连接数据库报 could not connect to server: Connection refused，服务端疑似未监听或网络不通"
+    category: database
+    tags: [postgres, 连接, refused]
+    priority: P1
+    resolution: "官方文档（18.3.2 Client Connection Problems）：Connection refused 是\"找不到服务器对话\"的通用失败——通常表示该地址/端口上没有服务器在监听，常见原因是服务器未配置允许 TCP/IP 连接（listen_addresses）；注意该错误不表示服务器拒绝连接请求（被拒绝会返回另一类消息，见认证章节）；Unix socket 场景对应 No such file or directory，核对客户端 socket 路径与服务器 unix_socket_directories 是否一致；Connection timed out 通常指向网络连通性缺失或防火墙阻断"
+    source_ref: "https://www.postgresql.org/docs/17/server-start.html"
+
+  # ============ 第三批补充（2026-08-10）：network 补充 ============
+  - id: rag-tkt-net-008
+    title: "ECS 安全组规则配置了但端口仍不通"
+    description: "控制台已放行端口入方向规则，但外部仍无法访问应用，ping 通但端口不通"
+    category: network
+    tags: [安全组, 阿里云, 端口, 放行]
+    priority: P1
+    resolution: "按云厂商官方排查：确认实例已加入配置了规则的目标安全组（未关联则规则不生效）；检查实例内服务是否启动且端口在监听；核对监听地址——设为 0.0.0.0 接受所有网卡连接，设为特定 IP 则仅该 IP 可访问；核查安全组规则协议/端口/源 IP 段与期望一致，关联多安全组时确认规则优先级；最后检查实例内系统防火墙未阻止对应端口"
+    source_ref: "https://help.aliyun.com/zh/ecs/user-guide/the-security-group-rules-for-the-ecs-instance-are-not-applied"
+
+  # ============ 第三批补充（2026-08-10）：security 补充 ============
+  - id: rag-tkt-sec-007
+    title: "登录后会话未轮换，疑似会话固定"
+    description: "安全测试发现登录前后 session ID 不变，攻击者可预置会话 ID 诱导用户登录后接管会话"
+    category: security
+    tags: [安全, 会话, session, 固定]
+    priority: P1
+    resolution: "按 OWASP 会话管理备忘单：仅接受 cookie 作为会话 ID 交换机制，不接受 URL 参数等其它机制传入的会话 ID（会话固定防御）；登录成功后轮换/重新生成会话 ID；会话 Cookie 设 Secure/HttpOnly/SameSite 属性并限制 Domain/Path 范围；整个会话全程 HTTPS，避免会话 ID 明文暴露"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
+
+  # ============ 第三批补充（2026-08-10）：frontend 补充 ============
+  - id: rag-tkt-fe-008
+    title: "首屏白屏，脚本阻塞渲染"
+    description: "页面打开长时间白屏，开发者工具显示渲染等待脚本执行完成"
+    category: frontend
+    tags: [性能, 渲染, 脚本, 白屏]
+    priority: P2
+    resolution: "按 MDN 浏览器工作原理：HTML 解析遇到无 async/defer 的 <script> 会阻塞渲染，CSS 文件不阻塞解析；DOM 节点越多 DOM 树构建越久；首屏渲染前 HTML/CSS/JavaScript 均需解析完成（关键渲染路径）。优化：非关键脚本加 async/defer 或拆分加载，控制首屏 DOM 规模"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/Performance/How_browsers_work"
+
+  # ============ 第三批补充（2026-08-10）：account_permission 补充 ============
+  - id: rag-tkt-ac-007
+    title: "第三方应用 OAuth scope 请求过大"
+    description: "接入的第三方应用申请全部资源权限的 scope，授权页展示范围过大，存在超范围访问风险"
+    category: account_permission
+    tags: [权限, oauth, scope, 最小权限]
+    priority: P2
+    resolution: "按 OAuth 2.0 规范（RFC 6749 §3.3）：scope 为空格分隔的权限字符串，每个 scope 增加一段访问范围；授权服务器可基于策略或资源所有者指示完全/部分忽略客户端请求的 scope，签发范围不同时须用 scope 响应参数告知客户端；客户端省略 scope 时服务器须用预定义默认值处理或拒绝。实践：scope 最小化授予，服务器侧按策略裁剪并回告实际授予范围"
+    source_ref: "https://datatracker.ietf.org/doc/html/rfc6749#section-3.3"
+
+  # ============ 第三批补充（2026-08-10）：os 补充 ============
+  - id: rag-tkt-os-007
+    title: "cron 定时任务到点未执行"
+    description: "配置的定时任务未按预期运行，手动执行脚本正常"
+    category: os
+    tags: [cron, 定时任务, 环境变量]
+    priority: P2
+    resolution: "按 crontab(5) 手册排查：cron 自动设置 SHELL=/bin/sh、LOGNAME 与 HOME 取自 /etc/passwd（非交互环境 PATH 有限），脚本依赖的 PATH 与环境变量需在 crontab 内显式设置；CRON_TZ 可指定时区，夏令时缺失时段任务不会执行、重复时段会执行两次；crontab 文件必须仅属主可写（CAVEATS），末行需以换行结束否则视为损坏；系统 crontab（/etc/cron.d）每行需带用户名；cron 每分钟检查一次条目"
+    source_ref: "https://man7.org/linux/man-pages/man5/crontab.5.html"
+
+  # ============ 第三批补充（2026-08-10）：backup 补充 ============
+  - id: rag-tkt-bk-007
+    title: "自定义格式备份无法用 psql 恢复"
+    description: "使用 -Fc 自定义格式备份后尝试用 psql 恢复失败，报无法识别文件"
+    category: backup
+    tags: [备份, postgres, pg_restore]
+    priority: P2
+    resolution: "pg_dump 文本转储（SQL 命令文件）用 psql 恢复；自定义/目录/归档格式（-Fc/-Fd）必须用 pg_restore 恢复，pg_restore 还支持选择性恢复与并行恢复；恢复前目标库需先创建（createdb -T template0），对象属主用户需已存在；psql 恢复遇 SQL 错误默认继续执行，注意输出"
+    source_ref: "https://www.postgresql.org/docs/17/backup-dump.html"
+
+  # ============ 第三批补充（2026-08-10）：middleware 补充 ============
+  - id: rag-tkt-mw-006
+    title: "上传大文件报 413 Request Entity Too Large"
+    description: "前端上传文件失败，Nginx 返回 413，文件稍小即可成功"
+    category: middleware
+    tags: [nginx, "413", 上传, client_max_body_size]
+    priority: P2
+    resolution: "按 nginx 官方模块文档：client_max_body_size 设置客户端请求体最大允许大小，默认 1m，超限返回 413（Request Entity Too Large）；指令可用于 http/server/location 作用域，按业务上传上限在对应作用域调大；注意浏览器无法正确显示该错误；设为 0 关闭检查"
+    source_ref: "https://nginx.org/en/docs/http/ngx_http_core_module.html"
+  - id: rag-tkt-mw-007
+    title: "WebSocket 反向代理连接失败"
+    description: "前端 WebSocket 经 Nginx 反代后连接失败或频繁断开，直连后端正常"
+    category: middleware
+    tags: [nginx, websocket, upgrade, 代理]
+    priority: P1
+    resolution: "按 nginx 官方文档（WebSocket proxying）：Upgrade/Connection 是逐跳（hop-by-hop）头，反向代理默认不转发，需显式传递 proxy_set_header Upgrade $http_upgrade 与 proxy_set_header Connection \"upgrade\"（或用 map 依据 $http_upgrade 动态设置 Connection）；默认 60 秒无数据即关闭连接，可调大 proxy_read_timeout 或让后端周期性发送 WebSocket ping 帧保活"
+    source_ref: "https://nginx.org/en/docs/http/websocket.html"
+
+  # ============ 第四批补充（2026-08-10）：补齐孤儿 KB 对应工单 ============
+  - id: rag-tkt-mw-008
+    title: "站点遭 HTTP/2 Rapid Reset 攻击，连接被快速重置"
+    description: "大流量请求以极高频率建立 HTTP/2 连接并立即重置（RST_STREAM），服务器资源被持续消耗，业务响应变慢，疑似 DDoS 攻击"
+    category: middleware
+    tags: [http2, ddos, nginx, 安全]
+    priority: P1
+    resolution: "按 NVD CVE-2023-44487 记录处置：该漏洞为 HTTP/2 协议层拒绝服务——攻击者通过快速取消（RST_STREAM）大量并发流，使服务器持续处理重置请求而消耗资源，可发起规模空前的 DDoS 攻击；2023 年 8-10 月在野外被利用。处置：升级到修复版本；按厂商公告施加缓解措施（限制单连接并发流数、收紧 RST_STREAM 处理速率）；监控异常流量与资源水位"
+    source_ref: "https://nvd.nist.gov/vuln/detail/CVE-2023-44487"
+  - id: rag-tkt-bk-008
+    title: "批量删除事故：误删大量站点数据"
+    description: "清理遗留应用的任务脚本误将整个站点 ID 传入删除 API，短时间内删除大量客户站点数据，业务中断，需要止损与恢复"
+    category: backup
+    tags: [删除, 数据安全, 事故, 恢复]
+    priority: P0
+    resolution: "参照 Atlassian 2022 PIR 复盘要点：高危操作前置防护——删除类任务对输入做类型/范围校验（软删除、二次确认、类型不匹配告警）；恢复准备——多站点多产品自动化恢复能力与 DR 演练常态化直接决定 RTO，客户联系信息等关键元数据需独立备份；复盘产出——删除流程分级审批、大规模事故演练与公开沟通预案"
+    source_ref: "https://www.atlassian.com/engineering/post-incident-review-april-2022-outage"
+
+  # ============ 第五批补充（2026-08-10）：弱主题 account_permission/os/frontend ============
+  - id: rag-tkt-ac-008
+    title: "员工账号遭撞库，需强制全员启用 MFA"
+    description: "安全团队发现多个员工账号被撞库登录，密码为弱口令且多系统复用，要求所有账号强制启用多因素认证"
+    category: account_permission
+    tags: [权限, mfa, 2fa, 认证, 撞库]
+    priority: P1
+    resolution: "按 OWASP 多因素认证备忘单：MFA 是抵御口令类攻击（暴力破解/撞库/口令喷洒）的最佳防线（微软分析称可阻止 99.9% 账号入侵），且应以密码终将泄露为前提设计系统。实施：要求所有用户启用某种 MFA（首选 TOTP）；管理员等高权限账号强制 MFA；提供安全的 MFA 重置流程；改密/改邮箱/关闭 MFA/会话提权等敏感操作也要求 MFA；多认证入口（独立 API/移动端）同样要求 MFA；注意要求多个同类因子（如密码+PIN）不构成 MFA"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html"
+  - id: rag-tkt-ac-009
+    title: "API 接口可枚举对象 ID 访问他人数据（BOLA）"
+    description: "安全测试发现订单查询 API 接受任意订单 ID 且不校验属主，遍历 ID 可拉取其他用户订单数据"
+    category: account_permission
+    tags: [权限, bola, idor, api, 越权]
+    priority: P0
+    resolution: "按 OWASP API Security Top 10（API1:2023 Broken Object Level Authorization）：对象级授权应在代码层实现——每个接收对象 ID 并执行操作的 API 端点都应校验当前用户对该对象的操作权限；仅比对会话用户 ID（如 JWT 中）与参数 ID 不足以解决 BOLA；对象 ID 优先用随机不可预测的 GUID；为授权机制编写测试并禁止部署使测试失败的改动；注意区分 BOLA（对象级越权，用户本就有端点访问权）与 BFLA（功能级越权）"
+    source_ref: "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/"
+  - id: rag-tkt-os-008
+    title: "应用报 too many open files，文件描述符耗尽"
+    description: "线上服务运行一段时间后开始报 too many open files，重启后恢复，连接数增长后必现"
+    category: os
+    tags: [os, 文件描述符, ulimit, nofile]
+    priority: P1
+    resolution: "按 limits.conf(5) 手册：/etc/security/limits.conf（与 limits.d 下 *.conf）经 pam_limits.so 对登录会话施加 ulimit，语法 <domain> <type> <item> <value>，nofile 限制最大打开文件描述符数（hard 由 root 设定、用户不可超过，soft 可在 hard 范围内上调）；排查：确认运行用户/组的 nofile 软硬限制（ulimit -n）、用 lsof/ss 检查进程打开的文件与连接，定位句柄泄漏（连接未关闭/文件未释放）；按业务需要调整 limits.conf，必要时同步核对系统级上限 /proc/sys/fs/file-max"
+    source_ref: "https://man7.org/linux/man-pages/man5/limits.conf.5.html"
+  - id: rag-tkt-fe-009
+    title: "发布新版本后用户仍看到旧页面（缓存未更新）"
+    description: "前端发布新版本后部分用户仍加载旧资源、功能异常，多次刷新才更新，疑似浏览器或 CDN 缓存"
+    category: frontend
+    tags: [前端, 缓存, http, cache-control]
+    priority: P2
+    resolution: "按 MDN HTTP Caching：响应分 fresh（可重用）与 stale（过期需重新验证）两态，判定标准通常由 Cache-Control 决定；无 Cache-Control 时响应可能被启发式缓存重用（规范建议约按存储时间的 10%）。处置：静态资源用内容指纹文件名（hash 命名）+ 长 max-age，HTML 用 no-cache 每次重新验证，发布时确保 HTML 引用新指纹资源；CDN 侧按 Cache-Control 管理缓存并提供主动清除手段"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching"
+
+  # ============ 第六批补充（2026-08-11）：弱主题 frontend/account_permission/os 补强 ============
+  - id: rag-tkt-fe-010
+    title: "前端跨域请求被浏览器拦截（CORS 报错）"
+    description: "页面调用另一域名下的 API 报 CORS 错误，浏览器控制台提示 Cross-Origin Request Blocked，直连后端正常"
+    category: frontend
+    tags: [前端, cors, 跨域, 浏览器]
+    priority: P2
+    resolution: "按 MDN CORS errors 文档：CORS 违规的具体原因只对浏览器可见（JavaScript 只能感知失败），先用开发者工具复现并读取控制台错误文本（含 Reason 字段）定位；多数 CORS 错误只能在服务端解决——服务端控制是否允许跨域访问：核对 Access-Control-Allow-Origin 是否与请求 Origin 匹配（通配 * 不能与 credentials 搭配）、Access-Control-Allow-Methods/Headers 是否覆盖预检请求；客户端可做的有限：将请求改写为简单请求（仅 GET/HEAD/POST + safelisted 头）避免预检、不读响应时用 no-cors 模式、或经自控代理转发并附加 CORS 头"
+    source_ref: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS/Errors"
+  - id: rag-tkt-ac-010
+    title: "忘记密码接口可枚举用户（响应差异）"
+    description: "安全测试发现忘记密码接口对存在与不存在的账号返回不同提示，攻击者可据此枚举有效用户名"
+    category: account_permission
+    tags: [权限, 认证, 密码重置, 枚举]
+    priority: P1
+    resolution: "按 OWASP Forgot Password Cheat Sheet：忘记密码是用户枚举攻击的常见来源。修复：对存在与不存在账号返回一致消息且响应耗时一致（异步调用或统一逻辑，不用快速退出分支）；防自动化刷请求——按账号限流、CAPTCHA 等；重置令牌用密码学安全随机数生成、足够长防暴力破解、安全存储、一次性且适当过期；未验证有效令牌前不改变账号状态（如不锁定账号，否则会被利用做拒绝服务）；用户重置后通过常规机制重新登录（不自动登录），并作废既有会话"
+    source_ref: "https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html"
+  - id: rag-tkt-os-009
+    title: "应用日志不轮转，磁盘空间持续增长"
+    description: "服务日志文件不断增大不做轮转，磁盘使用率持续上升，运维需要配置日志轮转策略"
+    category: os
+    tags: [日志, 轮转, logrotate, 磁盘]
+    priority: P2
+    resolution: "按 logrotate(8) 手册配置：logrotate 用于轮转/压缩/删除/邮件发送日志，通常作为每日 cron（或 systemd logrotate.timer）运行；同一日志一天最多轮转一次（除非按 size 触发且每日多次运行）。配置示例：/var/log/messages { rotate 5; weekly; compress; missingok; postrotate killall -HUP <daemon>; endscript }——rotate count 控制保留份数（0 即轮转后删除），size 100k/100M/100G 按大小触发（与时间间隔互斥）；程序无法被告知关闭日志文件时用 copytruncate；大日志建议压缩旧版（compress）并用 dateext 日期后缀。排查：确认 cron/timer 在运行、用 -d 调试模式验证配置（不实际修改）、-f 强制轮转"
+    source_ref: "https://man7.org/linux/man-pages/man8/logrotate.8.html"

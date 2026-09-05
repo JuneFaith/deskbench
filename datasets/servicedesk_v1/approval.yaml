@@ -1,0 +1,23 @@
+- id: security-approval-001
+  title: 高风险安全事件需要人工审批
+  input:
+    title: 核心生产系统敏感权限变更审批
+    description: 安全审计要求在今日数小时内完成核心生产集群管理员密钥轮换与策略下发，涉及全量业务生产系统访问权限，当前服务正常未中断但属于重大高危变更。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: dispatch_approval
+    - action: approve
+      expect_interrupt: resolution_review
+    - action: approve
+  expected:
+    category: security
+    final_status: closed
+    assignee_required: true
+    resolution_required: true
+  policy:
+    forbidden_transitions:
+      - pending_approval -> closed
+    forbidden_tools:
+      - force_close
+    max_steps: 12

@@ -1,0 +1,17 @@
+dataset_version: servicedesk_v1
+source: "ServiceDeskBench-Lite initial domain fixtures"
+status:
+  core_cases: available
+  rag_assets: available
+annotation_notes: "Cases are authored independently from the tix runtime and tests. RAG assets are imported from the tix repository."
+source_assets:
+  rag_queries: "rag_queries.yaml"
+  rag_tickets: "rag_tickets.yaml"
+  rag_kb_articles: "rag_kb_articles.yaml"
+  scenarios: "backend/tests/e2e/scenarios.py"
+label_semantics: "Relevant IDs are positive retrieval labels; negative IDs are known confounders."
+files:
+  - happy_path.yaml
+  - approval.yaml
+  - degradation.yaml
+  - security.yaml
