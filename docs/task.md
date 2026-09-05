@@ -668,5 +668,32 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
 - `uv run ruff check src tests evals` → All checks passed。
 - `uv run mypy src tests evals` → Success: no issues found in 53 source files。
 
-## T-008:
+## T-008: 远端仓库配置、首次推送与端到端评测基线固化
+
+**Kind:** maintenance/release
+**Status:** verified
+**Goal:** 完成 deskbench GitHub 远端仓库配置与首次上游推送，基于在线 Tix 服务执行端到端全量数据集评测、评分与安全门禁校验，固化基准报告与任务文档。
+
+### Architecture
+
+1. **远端发布**：配置 `origin` 远端为 `git@github.com:JuneFaith/deskbench.git`，通过 SSH 认证建立上游关联并推送 `main` 分支。
+2. **端到端评测闭环**：基于运行中的 Tix 后端服务与环境变量凭据，利用 `deskbench run` 批量驱动 `manifest.yaml` 全量评测用例（涵盖 7 个测试场景：咨询流转、审批中断、降级熔断与越权防御）。
+3. **安全门禁与评分**：通过 `deskbench score` 与 `deskbench gate` 校验硬性安全不变量（零审批绕过、零非法状态跃迁），验证门禁判定引擎。
+
+### Requirements
+
+- [x] 配置 deskbench 仓库 remote origin 为 `git@github.com:JuneFaith/deskbench.git` 并成功推送到远端 `main` 分支。
+- [x] 同步推送 `tix` 仓库待同步提交到远端 `origin/main`（4 个提交）。
+- [x] 验证真实环境 HTTP 集成测试（`test_tix_integration.py` 与 `test_tix_retrieval_integration.py`）通过（`2 passed in 17.06s`）。
+- [x] 执行 `deskbench run --dataset datasets/servicedesk_v1/manifest.yaml --adapter http` 完整评估 7 个用例并生成评测报告。
+- [x] 执行 `deskbench score` 与 `deskbench gate` 校验，硬性安全门禁全量通过（`failures: [], passed: true`）。
+
+### Verification
+
+- `git -C deskbench push -u origin main` → `main -> main`, `branch 'main' set up to track 'origin/main'`
+- `git -C tix push origin main` → `46cd8cd..6016a25 main -> main`
+- `pytest -m integration` → `2 passed, 82 deselected in 17.06s`
+- `deskbench run --dataset datasets/servicedesk_v1/manifest.yaml --adapter http --output reports` → evaluated 7 cases; 100% workflow_invariants pass
+- `deskbench gate --report reports/2026-09-05T185814.498880Z/summary.json` → `{"failures": [], "passed": true}`
+- `uv run ruff check src tests evals && uv run mypy src tests evals` → 全部通过
 
