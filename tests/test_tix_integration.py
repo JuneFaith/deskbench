@@ -6,27 +6,43 @@ from pathlib import Path
 import pytest
 import yaml
 
-from servicedeskbench.adapters.tix_http import TixHttpAdapter
-from servicedeskbench.contracts import Case
+from deskbench.adapters.tix_http import TixHttpAdapter
+from deskbench.contracts import Case
 
 
 @pytest.mark.integration
 @pytest.mark.anyio
 async def test_tix_http_approval_black_box_requires_deployment() -> None:
     """Run the approval workflow only when a complete deployment is configured."""
-    required = (
-        "SERVICEDESKBENCH_TIX_URL",
-        "SERVICEDESKBENCH_TIX_USERNAME",
-        "SERVICEDESKBENCH_TIX_PASSWORD",
+    tix_url = os.environ.get("DESKBENCH_TIX_URL") or os.environ.get(
+        "SERVICEDESKBENCH_TIX_URL"
     )
-    missing = [name for name in required if not os.environ.get(name)]
+    username = os.environ.get("DESKBENCH_TIX_USERNAME") or os.environ.get(
+        "SERVICEDESKBENCH_TIX_USERNAME"
+    )
+    password = os.environ.get("DESKBENCH_TIX_PASSWORD") or os.environ.get(
+        "SERVICEDESKBENCH_TIX_PASSWORD"
+    )
+    missing = [
+        name
+        for name, val in [
+            ("TIX_URL", tix_url),
+            ("TIX_USERNAME", username),
+            ("TIX_PASSWORD", password),
+        ]
+        if not val
+    ]
     if missing:
-        pytest.skip("deployment required; missing " + ", ".join(missing))
+        pytest.skip(
+            "deployment required; missing "
+            + ", ".join(f"DESKBENCH_{k}/SERVICEDESKBENCH_{k}" for k in missing)
+        )
 
+    assert tix_url and username and password
     adapter = TixHttpAdapter(
-        os.environ["SERVICEDESKBENCH_TIX_URL"],
-        username=os.environ["SERVICEDESKBENCH_TIX_USERNAME"],
-        password=os.environ["SERVICEDESKBENCH_TIX_PASSWORD"],
+        tix_url,
+        username=username,
+        password=password,
         poll_interval=0.5,
     )
     fixture = (
@@ -65,8 +81,8 @@ async def test_tix_http_approval_black_box_requires_deployment() -> None:
             handle = await adapter.resume(
                 handle,
                 "approve",
-                actor=os.environ["SERVICEDESKBENCH_TIX_USERNAME"],
-                comment="ServiceDeskBench approval MVP",
+                actor=username,
+                comment="deskbench approval MVP",
             )
             current = await adapter.wait_for_status(
                 handle,

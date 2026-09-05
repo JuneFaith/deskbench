@@ -1,6 +1,6 @@
-# ServiceDeskBench-Lite
+# deskbench
 
-ServiceDeskBench-Lite is an evaluation and reliability benchmark for enterprise service-desk agents. It evaluates more than the final answer: each case checks business outcome, execution trace, workflow invariants, failure recovery, retrieval quality, and cost/performance evidence.
+deskbench is an evaluation and reliability benchmark for enterprise service-desk agents. It evaluates more than the final answer: each case checks business outcome, execution trace, workflow invariants, failure recovery, retrieval quality, and cost/performance evidence.
 
 > **Status:** Local protocol evaluation, deterministic scorers, reports, and regression gates are available. Real HTTP and retrieval integration test against external Tix endpoints with environment gating; protocol tests run completely offline.
 
@@ -32,10 +32,10 @@ uv run ruff check src tests evals
 uv run mypy src tests evals
 ```
 
-The package exposes the `servicedeskbench` command:
+The package exposes the `deskbench` command:
 
 ```bash
-uv run servicedeskbench --help
+uv run deskbench --help
 ```
 
 ## Dataset and reports
@@ -70,38 +70,38 @@ an existing report summary; it does not rerun scorers.
 The CLI has three commands:
 
 ```bash
-SERVICEDESKBENCH_TIX_URL=https://tix.example \
-SERVICEDESKBENCH_TIX_USERNAME=... \
-SERVICEDESKBENCH_TIX_PASSWORD=... \
-uv run servicedeskbench run \
+DESKBENCH_TIX_URL=https://tix.example \
+DESKBENCH_TIX_USERNAME=... \
+DESKBENCH_TIX_PASSWORD=... \
+uv run deskbench run \
   --dataset datasets/servicedesk_v1/happy_path.yaml \
   --adapter http --output reports
-uv run servicedeskbench score --report reports/<timestamp>/summary.json
-uv run servicedeskbench gate --report reports/<timestamp>/summary.json \
+uv run deskbench score --report reports/<timestamp>/summary.json
+uv run deskbench gate --report reports/<timestamp>/summary.json \
   --baseline reports/<baseline>/summary.json
 ```
 
 Add `--json` to `run`, `score`, or `gate` for machine-readable success and
-error envelopes. The real-HTTP MVP reads `SERVICEDESKBENCH_TIX_URL` and either
-`SERVICEDESKBENCH_TIX_TOKEN` or `SERVICEDESKBENCH_TIX_USERNAME` plus
-`SERVICEDESKBENCH_TIX_PASSWORD`. Tix's LLM and embedding model settings are
-configured in the Tix deployment's `tix.yaml`; ServiceDeskBench does not own
+error envelopes. The real-HTTP MVP reads `DESKBENCH_TIX_URL` and either
+`DESKBENCH_TIX_TOKEN` or `DESKBENCH_TIX_USERNAME` plus
+`DESKBENCH_TIX_PASSWORD`. Tix's LLM and embedding model settings are
+configured in the Tix deployment's `tix.yaml`; deskbench does not own
 or override those model settings. It uses Tix's public `/api/tickets` and
 `/api/tickets/{ticket_id}/resume` endpoints; `ticket_id` is the business
 handle and `thread_id` is the approval handle. Ticket cleanup is not exposed
 by the public API: a dedicated deployment/database can own cleanup, while a
 shared development deployment leaves the created test ticket in that shared
 store. The Graph adapter reads
-`SERVICEDESKBENCH_GRAPH_FACTORY` in `module:attribute` form; the selected
+`DESKBENCH_GRAPH_FACTORY` in `module:attribute` form; the selected
 factory is the only application-specific graph integration seam.
 
 Protocol tests run without tix. Real integration tests are opt-in and require
 a reachable Tix service plus an account with approval permission:
 
 ```bash
-SERVICEDESKBENCH_TIX_URL=https://tix.example \
-SERVICEDESKBENCH_TIX_USERNAME=... \
-SERVICEDESKBENCH_TIX_PASSWORD=... \
+DESKBENCH_TIX_URL=https://tix.example \
+DESKBENCH_TIX_USERNAME=... \
+DESKBENCH_TIX_PASSWORD=... \
   uv run pytest -m integration
 ```
 
@@ -128,4 +128,4 @@ tests when no deployment is configured.
 
 ## Project boundary
 
-ServiceDeskBench-Lite is a standalone evaluation and reliability benchmark for enterprise service-desk agents. The package and CLI identity is `servicedeskbench`. Core contracts, runners, scorers, faults, and reporting are decoupled from any specific service-desk implementation; external systems under test integrate through dedicated adapters.
+deskbench is a standalone evaluation and reliability benchmark for enterprise service-desk agents. The package and CLI identity is `deskbench`. Core contracts, runners, scorers, faults, and reporting are decoupled from any specific service-desk implementation; external systems under test integrate through dedicated adapters.

@@ -1,20 +1,20 @@
 # AGENTS.md
 
-ServiceDeskBench-Lite 是面向企业服务台 Agent 的评测与可靠性检测基准。本指南为参与该项目的开发 Agent 提供架构边界、目录约定、代码规范与执行纪律。
+deskbench 是面向企业服务台 Agent 的评测与可靠性检测基准。本指南为参与该项目的开发 Agent 提供架构边界、目录约定、代码规范与执行纪律。
 
 ## 项目边界
 
-- 项目名称：ServiceDeskBench-Lite。
-- 核心包与 CLI：运行时包为 `servicedeskbench`，命令行入口为 `servicedeskbench`。
+- 项目名称：deskbench。
+- 核心包与 CLI：运行时包为 `deskbench`，命令行入口为 `deskbench`。
 - 核心领域：企业服务台 Agent 的有状态任务、审批、降级、权限、RAG 和可靠性。
-- 被测系统解耦：被测系统（如 Tix）是外部系统，核心层不导入被测系统内部 ORM、Repository 或状态机实现；所有交互通过 `src/servicedeskbench/adapters/` 隔离。
+- 被测系统解耦：被测系统（如 Tix）是外部系统，核心层不导入被测系统内部 ORM、Repository 或状态机实现；所有交互通过 `src/deskbench/adapters/` 隔离。
 - 核心协议：核心代码只依赖 Case、CanonicalState、CanonicalTrace、AgentRun 和 Adapter 协议。
 - 范围控制：聚焦服务台领域评测、执行 Adapter（Graph/HTTP）、retrieval Adapter、确定性 Scorer、CLI、JSON/Markdown 报告和回归门禁。
 
 ## 目录约定
 
 ```text
-src/servicedeskbench/
+src/deskbench/
 ├── contracts/       # Case、CanonicalState、CanonicalTrace、AgentRun、ScoreResult
 ├── adapters/        # AgentAdapter、TixGraphAdapter、TixHttpAdapter、TixRetrievalAdapter
 ├── runner/          # 生命周期、执行控制与限制
@@ -22,7 +22,7 @@ src/servicedeskbench/
 ├── faults/          # 评测侧故障计划与注入 Provider
 ├── reporting/       # JSON、Markdown、baseline、Regression Gate
 ├── trace/           # 轨迹归一化
-└── cli.py           # servicedeskbench CLI 入口
+└── cli.py           # deskbench CLI 入口
 
 datasets/servicedesk_v1/  # 独立、版本化、带来源说明的服务台数据集与 RAG 资产
 reports/                   # 本地实验输出目录（由 .gitignore 忽略）
@@ -63,7 +63,7 @@ uv run mypy src tests evals
 ```
 
 - 开发时优先运行相关测试文件；修改后必须重新运行相关验证。
-- 外部集成测试受环境变量保护（如 `SERVICEDESKBENCH_TIX_URL`）；未配置环境时必须明确跳过（skip），不能把环境缺失报告为通过。
+- 外部集成测试受环境变量保护（如 `DESKBENCH_TIX_URL`）；未配置环境时必须明确跳过（skip），不能把环境缺失报告为通过。
 - 产品功能变更需在 `CHANGELOG.md` 顶部的 `## Unreleased` 下增加一条约 25 词以内的行为描述；纯文档和内部重构不添加条目。
 
 ## 执行纪律

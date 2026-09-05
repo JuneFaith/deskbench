@@ -1,4 +1,4 @@
-"""Tests for ServiceDeskBench domain contracts."""
+"""Tests for Deskbench domain contracts."""
 
 from pathlib import Path
 
@@ -6,14 +6,14 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from servicedeskbench.contracts import (
+from deskbench.contracts import (
     AgentRun,
     CanonicalState,
     CanonicalTrace,
     Case,
     ExperimentMetadata,
 )
-from servicedeskbench.runner.lifecycle import (
+from deskbench.runner.lifecycle import (
     _manifest_source,
     load_cases,
     load_cases_async,
@@ -136,7 +136,8 @@ def test_s3_yaml_object_is_not_treated_as_dataset_prefix() -> None:
 @pytest.mark.anyio
 async def test_async_s3_load_reports_remote_read_errors() -> None:
     with pytest.raises(
-        RuntimeError, match="unable to read remote dataset|asyncio AnyIO backend"
+        RuntimeError,
+        match="unable to read remote dataset|asyncio AnyIO backend|deskbench\\[remote\\] extra",
     ):
         await load_cases_async("s3://bucket/dataset")
 

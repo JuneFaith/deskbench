@@ -9,7 +9,7 @@ uv run pytest -q
 uv run ruff format --check src tests evals
 uv run ruff check src tests evals
 uv run mypy src tests evals
-uv run python -m servicedeskbench.cli --help
+uv run python -m deskbench.cli --help
 ```
 
 开发期间可先运行相关测试：
@@ -27,14 +27,14 @@ uv run pytest tests/test_reporting.py tests/test_gate.py -q
 
 - **Unit tests**：验证 contracts、trace 归一化、Runner、Scorer、报告和门禁，不需要 tix。
 - **Protocol tests**：用注入的协议客户端验证 Graph/HTTP Adapter 的请求、映射和生命周期，不需要 tix 部署。
-- **Integration tests**：通过 `integration` marker 访问真实 Tix 公共 Ticket API，要求配置 `SERVICEDESKBENCH_TIX_URL`、`SERVICEDESKBENCH_TIX_USERNAME` 和 `SERVICEDESKBENCH_TIX_PASSWORD`（Adapter 协议本身亦支持 token，当前集成测试用例按完整账号密码登录执行）。
+- **Integration tests**：通过 `integration` marker 访问真实 Tix 公共 Ticket API，要求配置 `DESKBENCH_TIX_URL`、`DESKBENCH_TIX_USERNAME` 和 `DESKBENCH_TIX_PASSWORD`（Adapter 协议本身亦支持 token，当前集成测试用例按完整账号密码登录执行）。
 
 ## tix 集成
 
 ```bash
-SERVICEDESKBENCH_TIX_URL=https://tix.example \
-SERVICEDESKBENCH_TIX_USERNAME=... \
-SERVICEDESKBENCH_TIX_PASSWORD=... \
+DESKBENCH_TIX_URL=https://tix.example \
+DESKBENCH_TIX_USERNAME=... \
+DESKBENCH_TIX_PASSWORD=... \
   uv run pytest -m integration
 ```
 

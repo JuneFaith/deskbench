@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from servicedeskbench.adapters.tix_retrieval import TixRetrievalAdapter
+from deskbench.adapters.tix_retrieval import TixRetrievalAdapter
 
 
 class RetrievalClient:

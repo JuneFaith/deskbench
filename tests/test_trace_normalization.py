@@ -2,8 +2,8 @@
 
 import pytest
 
-from servicedeskbench.contracts import TraceEventKind
-from servicedeskbench.trace.normalize import TraceNormalizationError, normalize_trace
+from deskbench.contracts import TraceEventKind
+from deskbench.trace.normalize import TraceNormalizationError, normalize_trace
 
 
 def test_normalize_trace_preserves_tool_and_state_evidence() -> None:

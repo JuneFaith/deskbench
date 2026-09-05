@@ -1,6 +1,6 @@
 # Adapter contracts
 
-Adapters isolate ServiceDeskBench from systems under test. Core contracts never
+Adapters isolate deskbench from systems under test. Core contracts never
 import Tix models; the HTTP adapter converts public JSON responses into
 `CanonicalState` and `CanonicalTrace` evidence.
 

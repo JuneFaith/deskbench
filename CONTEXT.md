@@ -1,8 +1,8 @@
-# ServiceDeskBench-Lite 项目上下文
+# deskbench 项目上下文
 
 ## 当前状态
 
-ServiceDeskBench-Lite 是面向企业服务台 Agent 的评测与可靠性检测基准。当前提供本地协议级评测、5 类确定性 Scorer（Outcome、Workflow Invariants、Trajectory、Resilience、Retrieval）、报告和回归门禁。已支持 Tix HTTP、Graph 与 Retrieval Adapter，并在真实 Tix 部署上完成 happy_path、approval、security 数据集与真实混合检索的端到端闭环验证及基线固化。数据集与 RAG 资产均已就绪并由 manifest 统一管理；独立部署隔离与自动清理属于外部编排边界。
+deskbench 是面向企业服务台 Agent 的评测与可靠性检测基准。当前提供本地协议级评测、5 类确定性 Scorer（Outcome、Workflow Invariants、Trajectory、Resilience、Retrieval）、报告和回归门禁。已支持 Tix HTTP、Graph 与 Retrieval Adapter，并在真实 Tix 部署上完成 happy_path、approval、security 数据集与真实混合检索的端到端闭环验证及基线固化。数据集与 RAG 资产均已就绪并由 manifest 统一管理；独立部署隔离与自动清理属于外部编排边界。
 
 ## 术语表
 
@@ -10,9 +10,9 @@ ServiceDeskBench-Lite 是面向企业服务台 Agent 的评测与可靠性检测
 - **CanonicalState**：Adapter 将被测系统状态映射后的业务事实模型；核心 Scorer 只读取此模型。
 - **CanonicalTrace**：Adapter 将执行事件归一化后的有序证据；包含工具、状态变更、中断、恢复、错误和降级事件。
 - **AgentRun**：一次 Case 执行的标准化结果，包括状态、轨迹、评分、错误和性能证据。
-- **Adapter**：连接 ServiceDeskBench 与被测系统的边界。当前有 tix Graph、tix HTTP 和 tix retrieval 三类 Adapter；HTTP 黑盒使用 `ticket_id` 业务句柄和 `thread_id` 审批句柄。
+- **Adapter**：连接 deskbench 与被测系统的边界。当前有 tix Graph、tix HTTP 和 tix retrieval 三类 Adapter；HTTP 黑盒使用 `ticket_id` 业务句柄和 `thread_id` 审批句柄。
 - **硬门禁**：必须为零的安全和流程错误率：审批绕过、跨工单恢复、降级误成功、非法状态迁移、禁止工具调用。
-- **测试职责分层**：Tix 保留实现级测试与部署冒烟；ServiceDeskBench 负责独立的系统级验收、可靠性与回归评测，不机械搬运 Tix 内部测试。
+- **测试职责分层**：Tix 保留实现级测试与部署冒烟；deskbench 负责独立的系统级验收、可靠性与回归评测，不机械搬运 Tix 内部测试。
 
 ## 架构事实
 
@@ -32,7 +32,7 @@ JSON / Markdown Report
 Regression Gate
 ```
 
-核心运行时包是 `src/servicedeskbench/`。contracts、runner、scorers、faults 和 reporting 不依赖 tix 内部类型；只有 `adapters/` 处理 tix Graph、公开 HTTP 或检索协议。HTTP Adapter 只调用公开 `/auth/login`、`/tickets`、详情、`transition` 和 `resume`，不调用虚构的 `/runs` 资源；部署或数据库生命周期负责清理。HTTP 评测可以复用共享开发部署，但这不提供隔离和自动清理证据。CLI 入口是 `servicedeskbench`。
+核心运行时包是 `src/deskbench/`。contracts、runner、scorers、faults 和 reporting 不依赖 tix 内部类型；只有 `adapters/` 处理 tix Graph、公开 HTTP 或检索协议。HTTP Adapter 只调用公开 `/auth/login`、`/tickets`、详情、`transition` 和 `resume`，不调用虚构的 `/runs` 资源；部署或数据库生命周期负责清理。HTTP 评测可以复用共享开发部署，但这不提供隔离和自动清理证据。CLI 入口是 `deskbench`。
 
 数据集位于 `datasets/servicedesk_v1/`。核心 Case fixture 与 RAG 资产（`rag_queries.yaml`、`rag_tickets.yaml`、`rag_kb_articles.yaml`）均已就绪并由 `manifest.yaml` 记录元数据与来源路径。
 

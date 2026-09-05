@@ -77,8 +77,8 @@ P95 latency <= baseline × 1.2
 ## CLI
 
 ```bash
-uv run servicedeskbench score --report reports/<timestamp>/summary.json
-uv run servicedeskbench gate \
+uv run deskbench score --report reports/<timestamp>/summary.json
+uv run deskbench gate \
   --report reports/<timestamp>/summary.json \
   --baseline reports/<baseline>/summary.json
 ```

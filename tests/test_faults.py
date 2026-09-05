@@ -2,8 +2,8 @@
 
 import pytest
 
-from servicedeskbench.contracts import FaultComponent, FaultMode, FaultPlan
-from servicedeskbench.faults.providers import FaultInjected, FaultProvider
+from deskbench.contracts import FaultComponent, FaultMode, FaultPlan
+from deskbench.faults.providers import FaultInjected, FaultProvider
 
 
 def test_fault_plan_is_explicit_and_validated() -> None:

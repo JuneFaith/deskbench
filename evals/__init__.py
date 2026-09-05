@@ -1,1 +1,1 @@
-"""Runnable ServiceDeskBench evaluations."""
+"""Runnable Deskbench evaluations."""

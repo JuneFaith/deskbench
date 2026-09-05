@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-from servicedeskbench.adapters.tix_graph import TixGraphAdapter
-from servicedeskbench.contracts import Case
+from deskbench.adapters.tix_graph import TixGraphAdapter
+from deskbench.contracts import Case
 
 
 class Graph:

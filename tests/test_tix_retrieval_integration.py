@@ -11,13 +11,13 @@ from typing import Any
 import pytest
 import yaml
 
-from servicedeskbench.adapters.base import RunHandle
-from servicedeskbench.adapters.tix_http import TixHttpAdapter
-from servicedeskbench.adapters.tix_retrieval import (
+from deskbench.adapters.base import RunHandle
+from deskbench.adapters.tix_http import TixHttpAdapter
+from deskbench.adapters.tix_retrieval import (
     TixHttpRetrievalClient,
     TixRetrievalAdapter,
 )
-from servicedeskbench.scorers.retrieval import (
+from deskbench.scorers.retrieval import (
     RetrievalExample,
     RetrievalResult,
     score_retrieval,
@@ -25,7 +25,7 @@ from servicedeskbench.scorers.retrieval import (
 
 
 class TixLocalHybridRetrievalClient:
-    """Connect Tix's hybrid search to the ServiceDeskBench retrieval adapter protocol."""
+    """Connect Tix's hybrid search to the deskbench retrieval adapter protocol."""
 
     def __init__(self, config_path: str | Path, source: str = "ticket") -> None:
         self._config_path = Path(config_path)
@@ -114,11 +114,16 @@ class TixLocalHybridRetrievalClient:
 @pytest.mark.parametrize("anyio_backend", ["asyncio"])
 async def test_tix_hybrid_retrieval_real_integration() -> None:
     """Evaluate real Tix hybrid retrieval against the labeled queries dataset."""
-    config_path = os.environ.get("SERVICEDESKBENCH_TIX_CONFIG")
-    tix_url = os.environ.get("SERVICEDESKBENCH_TIX_URL")
+    config_path = os.environ.get("DESKBENCH_TIX_CONFIG") or os.environ.get(
+        "SERVICEDESKBENCH_TIX_CONFIG"
+    )
+    tix_url = os.environ.get("DESKBENCH_TIX_URL") or os.environ.get(
+        "SERVICEDESKBENCH_TIX_URL"
+    )
     if not tix_url and (not config_path or not Path(config_path).is_file()):
         pytest.skip(
-            "SERVICEDESKBENCH_TIX_URL or SERVICEDESKBENCH_TIX_CONFIG required for retrieval integration"
+            "DESKBENCH_TIX_URL/SERVICEDESKBENCH_TIX_URL or "
+            "DESKBENCH_TIX_CONFIG/SERVICEDESKBENCH_TIX_CONFIG required for retrieval integration"
         )
 
     queries_path = (
@@ -132,12 +137,20 @@ async def test_tix_hybrid_retrieval_real_integration() -> None:
 
     ticket_client: Any
     if tix_url:
-        token = os.environ.get("SERVICEDESKBENCH_TIX_TOKEN")
-        if not token and os.environ.get("SERVICEDESKBENCH_TIX_USERNAME"):
+        token = os.environ.get("DESKBENCH_TIX_TOKEN") or os.environ.get(
+            "SERVICEDESKBENCH_TIX_TOKEN"
+        )
+        username = os.environ.get("DESKBENCH_TIX_USERNAME") or os.environ.get(
+            "SERVICEDESKBENCH_TIX_USERNAME"
+        )
+        password = os.environ.get("DESKBENCH_TIX_PASSWORD") or os.environ.get(
+            "SERVICEDESKBENCH_TIX_PASSWORD"
+        )
+        if not token and username:
             http_adapter = TixHttpAdapter(
                 tix_url,
-                username=os.environ.get("SERVICEDESKBENCH_TIX_USERNAME"),
-                password=os.environ.get("SERVICEDESKBENCH_TIX_PASSWORD"),
+                username=username,
+                password=password,
             )
             token = await http_adapter.login()
             await http_adapter.cleanup(RunHandle(run_id="init", case_id="init"))

@@ -1,4 +1,4 @@
-"""Tests for the ServiceDeskBench package boundary."""
+"""Tests for the Deskbench package boundary."""
 
 import subprocess
 import sys
@@ -6,7 +6,7 @@ import sys
 
 def test_core_package_imports_without_tix() -> None:
     result = subprocess.run(
-        [sys.executable, "-c", "import servicedeskbench.contracts"],
+        [sys.executable, "-c", "import deskbench.contracts"],
         check=False,
         capture_output=True,
         text=True,
@@ -20,8 +20,8 @@ def test_tix_adapter_is_not_imported_by_core() -> None:
         [
             sys.executable,
             "-c",
-            "import sys; import servicedeskbench.contracts; "
-            "assert 'servicedeskbench.adapters.tix_graph' not in sys.modules",
+            "import sys; import deskbench.contracts; "
+            "assert 'deskbench.adapters.tix_graph' not in sys.modules",
         ],
         check=False,
         capture_output=True,

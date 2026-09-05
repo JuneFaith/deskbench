@@ -1,5 +1,5 @@
 dataset_version: servicedesk_v1
-source: "ServiceDeskBench-Lite initial domain fixtures"
+source: "deskbench initial domain fixtures"
 status:
   core_cases: available
   rag_assets: available

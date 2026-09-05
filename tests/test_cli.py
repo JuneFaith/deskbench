@@ -1,11 +1,12 @@
-"""Tests for the ServiceDeskBench command line interface."""
+"""Tests for the Deskbench command line interface."""
 
 import json
 from pathlib import Path
 
+import pytest
 from pytest import CaptureFixture
 
-from servicedeskbench.cli import build_parser, main
+from deskbench.cli import build_parser, main
 
 
 def test_cli_exposes_run_score_and_gate_commands() -> None:
@@ -207,3 +208,30 @@ def test_cli_gate_with_baseline_fails_on_regression(
     assert "completion_regression" in output["failures"]
     assert "p95_latency_regression" in output["failures"]
     assert "unexplained_tool_call_growth" in output["failures"]
+
+
+def test_cli_graph_factory_env_var_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    dataset = tmp_path / "cases.yaml"
+    dataset.write_text("- id: case-1\n  expected:\n    final_status: closed\n")
+
+    monkeypatch.delenv("DESKBENCH_GRAPH_FACTORY", raising=False)
+    monkeypatch.delenv("SERVICEDESKBENCH_GRAPH_FACTORY", raising=False)
+
+    exit_code = main(["run", "--dataset", str(dataset), "--adapter", "graph", "--json"])
+    assert exit_code == 2
+    output = json.loads(capsys.readouterr().out)
+    assert "DESKBENCH_GRAPH_FACTORY" in output["error"]["detail"]
+
+    monkeypatch.setenv("SERVICEDESKBENCH_GRAPH_FACTORY", "invalid_format")
+    exit_code = main(["run", "--dataset", str(dataset), "--adapter", "graph", "--json"])
+    assert exit_code == 2
+    output = json.loads(capsys.readouterr().out)
+    assert "module:attribute syntax" in output["error"]["detail"]
+
+    monkeypatch.setenv("DESKBENCH_GRAPH_FACTORY", "invalid_format")
+    exit_code = main(["run", "--dataset", str(dataset), "--adapter", "graph", "--json"])
+    assert exit_code == 2
+    output = json.loads(capsys.readouterr().out)
+    assert "module:attribute syntax" in output["error"]["detail"]

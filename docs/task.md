@@ -1,19 +1,19 @@
 # Task Records
 
-## T-001: ServiceDeskBench-Lite 服务台 Agent 评测与可靠性检测系统基础架构搭建
+## T-001: deskbench 服务台 Agent 评测与可靠性检测系统基础架构搭建
 
 **Kind:** feature
 **Status:** verified
-**Goal:** 搭建 ServiceDeskBench-Lite 基础架构，通过统一的 Case、CanonicalState、CanonicalTrace、Tix Graph/HTTP Adapter、确定性 Scorer、故障计划、报告和回归门禁验证服务台 Agent。
+**Goal:** 搭建 deskbench 基础架构，通过统一的 Case、CanonicalState、CanonicalTrace、Tix Graph/HTTP Adapter、确定性 Scorer、故障计划、报告和回归门禁验证服务台 Agent。
 
 ### Architecture
 
-本任务搭建 ServiceDeskBench-Lite 基础架构。`src/servicedeskbench/` 是唯一运行时包；核心 contracts、runner、scorers、faults 和 reporting 不导入 tix，只有 Adapter 模块处理 tix 边界。tix 源码和部署不在当前 checkout 中，因此协议测试使用注入的协议客户端，真实 Graph/HTTP 测试使用环境门控并在缺少部署时明确跳过。依据 D-003，ServiceDeskBench 负责 Tix 之外的系统级验收、可靠性与回归评测；Tix 内部实现测试和启动/健康检查冒烟不放入本仓库。
+本任务搭建 deskbench 基础架构。`src/deskbench/` 是唯一运行时包；核心 contracts、runner、scorers、faults 和 reporting 不导入 tix，只有 Adapter 模块处理 tix 边界。tix 源码和部署不在当前 checkout 中，因此协议测试使用注入的协议客户端，真实 Graph/HTTP 测试使用环境门控并在缺少部署时明确跳过。依据 D-003，deskbench 负责 Tix 之外的系统级验收、可靠性与回归评测；Tix 内部实现测试和启动/健康检查冒烟不放入本仓库。
 
 ### Out of Scope
 
 - 不把 Ragas、DeepEval、AgentEvals、Phoenix、Langfuse 或 Opik 设为核心运行时依赖：第一版按领域协议构建运行时。
-- 不把 Tix 的实现级测试和启动冒烟机械搬运到 ServiceDeskBench；两者按 D-003 分层维护。
+- 不把 Tix 的实现级测试和启动冒烟机械搬运到 deskbench；两者按 D-003 分层维护。
 - 不在 tix 生产代码中增加 `evaluation_mode`、测试捷径、测试专用接口或评测分支：故障注入放在评测侧，HTTP 故障场景通过外部代理实现。
 - 不实现完整观测平台、Web Dashboard、在线监控、自动修复、自动生成海量数据集或多行业 Benchmark：Lite 版本只覆盖服务台领域、两个执行 Adapter、一个 retrieval Adapter、四类核心 Scorer、一个 CLI、JSON/Markdown 报告和回归门禁。
 
@@ -34,14 +34,14 @@
 **Files:**
 - Create: `pyproject.toml`
 - Create: `README.md`
-- Create: `src/servicedeskbench/__init__.py`
-- Create: `src/servicedeskbench/py.typed`
+- Create: `src/deskbench/__init__.py`
+- Create: `src/deskbench/py.typed`
 - Create: `tests/test_package_boundary.py`
 - Create: `AGENTS.md`
 - Create: `.gitignore`
 
 **Interfaces:**
-- Produces package import `servicedeskbench` and console entry point `servicedeskbench`.
+- Produces package import `deskbench` and console entry point `deskbench`.
 - Core dependency set is limited to `pydantic>=2`, `PyYAML`, `httpx`, and `anyio`; `fsspec` and `s3fs` are optional under the `remote` extra, and no core module imports tix at import time.
 - Initialize repository with clean structure and baseline commit.
 
@@ -57,13 +57,13 @@ import importlib
 
 
 def test_core_package_imports_without_tix() -> None:
-    module = importlib.import_module("servicedeskbench.contracts")
+    module = importlib.import_module("deskbench.contracts")
     assert module is not None
 
 
 def test_tix_adapter_is_not_imported_by_core() -> None:
-    importlib.import_module("servicedeskbench.contracts")
-    assert "servicedeskbench.adapters.tix_graph" not in __import__("sys").modules
+    importlib.import_module("deskbench.contracts")
+    assert "deskbench.adapters.tix_graph" not in __import__("sys").modules
 ```
 
 - [x] **Step 3: Run `pytest tests/test_package_boundary.py -q` and verify it fails because the package does not exist**
@@ -77,7 +77,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "servicedeskbench"
+name = "deskbench"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = ["anyio>=4", "httpx>=0.27", "pydantic>=2", "pyyaml>=6"]
@@ -86,15 +86,15 @@ dependencies = ["anyio>=4", "httpx>=0.27", "pydantic>=2", "pyyaml>=6"]
 remote = ["fsspec>=2024.6", "s3fs>=2024.6"]
 
 [project.scripts]
-servicedeskbench = "servicedeskbench.cli:main"
+deskbench = "deskbench.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 ```
 
 ```python
-# src/servicedeskbench/__init__.py
-"""ServiceDeskBench-Lite service-desk agent evaluation toolkit."""
+# src/deskbench/__init__.py
+"""deskbench service-desk agent evaluation toolkit."""
 
 __all__ = ["__version__"]
 __version__ = "0.1.0"
@@ -102,7 +102,7 @@ __version__ = "0.1.0"
 
 - [x] **Step 5: Define initial project layout and core module boundaries**
 
-- [x] **Step 6: Configure project metadata, README, package discovery, console command, and tests under ServiceDeskBench-Lite namespace**
+- [x] **Step 6: Configure project metadata, README, package discovery, console command, and tests under deskbench namespace**
 
 - [x] **Step 7: Clean build assets and ensure project structure is minimal and self-contained**
 
@@ -115,10 +115,10 @@ README now documents local/file/S3 dataset loading, CLI JSON behavior, Graph fac
 ### Task 2: 定义 Case、CanonicalState、AgentRun 和版本化数据集
 
 **Files:**
-- Create: `src/servicedeskbench/contracts/cases.py`
-- Create: `src/servicedeskbench/contracts/state.py`
-- Create: `src/servicedeskbench/contracts/results.py`
-- Create: `src/servicedeskbench/contracts/__init__.py`
+- Create: `src/deskbench/contracts/cases.py`
+- Create: `src/deskbench/contracts/state.py`
+- Create: `src/deskbench/contracts/results.py`
+- Create: `src/deskbench/contracts/__init__.py`
 - Create: `datasets/servicedesk_v1/manifest.yaml`
 - Create: `datasets/servicedesk_v1/happy_path.yaml`
 - Create: `datasets/servicedesk_v1/approval.yaml`
@@ -139,7 +139,7 @@ from pathlib import Path
 import yaml
 import pytest
 from pydantic import ValidationError
-from servicedeskbench.contracts import Case, CanonicalState
+from deskbench.contracts import Case, CanonicalState
 
 
 def test_case_loads_versioned_approval_fixture() -> None:
@@ -174,9 +174,9 @@ def test_canonical_state_exposes_business_facts() -> None:
 ### Task 3: 实现 Trace 归一化和执行证据模型
 
 **Files:**
-- Create: `src/servicedeskbench/contracts/trace.py`
-- Create: `src/servicedeskbench/trace/normalize.py`
-- Create: `src/servicedeskbench/trace/__init__.py`
+- Create: `src/deskbench/contracts/trace.py`
+- Create: `src/deskbench/trace/normalize.py`
+- Create: `src/deskbench/trace/__init__.py`
 - Create: `tests/test_trace_normalization.py`
 
 **Interfaces:**
@@ -186,7 +186,7 @@ def test_canonical_state_exposes_business_facts() -> None:
 - [x] **Step 1: Write tests for tix-like event dictionaries, missing optional fields, invalid kinds, and preservation of raw evidence**
 
 ```python
-from servicedeskbench.trace.normalize import normalize_trace
+from deskbench.trace.normalize import normalize_trace
 
 
 def test_normalize_trace_preserves_tool_and_state_evidence() -> None:
@@ -207,9 +207,9 @@ def test_normalize_trace_preserves_tool_and_state_evidence() -> None:
 ### Task 4: 定义 Adapter 协议并实现 TixGraphAdapter
 
 **Files:**
-- Create: `src/servicedeskbench/adapters/base.py`
-- Create: `src/servicedeskbench/adapters/tix_graph.py`
-- Create: `src/servicedeskbench/adapters/__init__.py`
+- Create: `src/deskbench/adapters/base.py`
+- Create: `src/deskbench/adapters/tix_graph.py`
+- Create: `src/deskbench/adapters/__init__.py`
 - Create: `tests/test_adapter_contract.py`
 - Create: `tests/test_tix_graph_adapter.py`
 
@@ -242,9 +242,9 @@ async def test_adapter_contract_requires_cleanup(adapter: AgentAdapter, case: Ca
 ### Task 5: 实现 TixHttpAdapter 和最小只读 API 契约
 
 **Files:**
-- Create: `src/servicedeskbench/adapters/tix_http.py`
+- Create: `src/deskbench/adapters/tix_http.py`
 - Create: `tests/test_tix_http_adapter.py`
-- Modify: `README.md` to document `SERVICEDESKBENCH_TIX_URL`, authentication, Graph factory configuration, and integration-test command
+- Modify: `README.md` to document `DESKBENCH_TIX_URL`, authentication, Graph factory configuration, and integration-test command
 
 **Interfaces:**
 - `TixHttpAdapter(base_url: str, token: str | None, client: httpx.AsyncClient | None = None)` implements `AgentAdapter`.
@@ -257,18 +257,18 @@ async def test_adapter_contract_requires_cleanup(adapter: AgentAdapter, case: Ca
 
 - [x] **Step 3: Implement the adapter with `httpx.AsyncClient`, response validation, timeout configuration, and no business-logic retries; preserve the server's error code**
 
-- [x] **Step 4: Add an opt-in integration test marker that requires `SERVICEDESKBENCH_TIX_URL`; do not run it when the variable is absent**
+- [x] **Step 4: Add an opt-in integration test marker that requires `DESKBENCH_TIX_URL`; do not run it when the variable is absent**
 
 - [x] **Step 5: Run `pytest tests/test_tix_http_adapter.py -q && ruff check src tests && mypy src tests`**
 
 ### Task 6: 实现 Runner、执行限制和评测侧故障计划
 
 **Files:**
-- Create: `src/servicedeskbench/runner/lifecycle.py`
-- Create: `src/servicedeskbench/runner/execution.py`
-- Create: `src/servicedeskbench/runner/limits.py`
-- Create: `src/servicedeskbench/faults/plans.py`
-- Create: `src/servicedeskbench/faults/providers.py`
+- Create: `src/deskbench/runner/lifecycle.py`
+- Create: `src/deskbench/runner/execution.py`
+- Create: `src/deskbench/runner/limits.py`
+- Create: `src/deskbench/faults/plans.py`
+- Create: `src/deskbench/faults/providers.py`
 - Create: `tests/test_runner.py`
 - Create: `tests/test_faults.py`
 
@@ -292,11 +292,11 @@ The runner also enforces configured step and tool-call limits and preserves adap
 ### Task 7: 实现四类确定性 Scorer
 
 **Files:**
-- Create: `src/servicedeskbench/scorers/outcome.py`
-- Create: `src/servicedeskbench/scorers/invariants.py`
-- Create: `src/servicedeskbench/scorers/trajectory.py`
-- Create: `src/servicedeskbench/scorers/resilience.py`
-- Create: `src/servicedeskbench/scorers/__init__.py`
+- Create: `src/deskbench/scorers/outcome.py`
+- Create: `src/deskbench/scorers/invariants.py`
+- Create: `src/deskbench/scorers/trajectory.py`
+- Create: `src/deskbench/scorers/resilience.py`
+- Create: `src/deskbench/scorers/__init__.py`
 - Create: `tests/test_scorers.py`
 
 **Interfaces:**
@@ -319,8 +319,8 @@ The runner also enforces configured step and tool-call limits and preserves adap
 ### Task 8: 抽取并评估 RAG 数据
 
 **Files:**
-- Create: `src/servicedeskbench/adapters/tix_retrieval.py`
-- Create: `src/servicedeskbench/scorers/retrieval.py`
+- Create: `src/deskbench/adapters/tix_retrieval.py`
+- Create: `src/deskbench/scorers/retrieval.py`
 - Create: `datasets/servicedesk_v1/rag_queries.yaml`
 - Create: `datasets/servicedesk_v1/rag_tickets.yaml`
 - Create: `datasets/servicedesk_v1/rag_kb_articles.yaml`
@@ -348,10 +348,10 @@ The metric tests pass locally, but the requested fixture report cannot be genera
 ### Task 9: 实现实验持久化、报告和 Regression Gate
 
 **Files:**
-- Create: `src/servicedeskbench/reporting/json_report.py`
-- Create: `src/servicedeskbench/reporting/markdown_report.py`
-- Create: `src/servicedeskbench/reporting/gate.py`
-- Create: `src/servicedeskbench/reporting/__init__.py`
+- Create: `src/deskbench/reporting/json_report.py`
+- Create: `src/deskbench/reporting/markdown_report.py`
+- Create: `src/deskbench/reporting/gate.py`
+- Create: `src/deskbench/reporting/__init__.py`
 - Create: `tests/test_reporting.py`
 - Create: `tests/test_gate.py`
 
@@ -375,7 +375,7 @@ Reports use `EvaluationReport` and `ExperimentMetadata`; summaries derive retrie
 ### Task 10: 接入 CLI、评测入口、契约矩阵和项目文档
 
 **Files:**
-- Create: `src/servicedeskbench/cli.py`
+- Create: `src/deskbench/cli.py`
 - Create: `evals/servicedesk_eval.py`
 - Create: `tests/test_cli.py`
 - Create: `tests/test_end_to_end.py`
@@ -383,7 +383,7 @@ Reports use `EvaluationReport` and `ExperimentMetadata`; summaries derive retrie
 - Modify: `CHANGELOG.md` only when the implementation adds user-facing product functionality and the entry is placed under `## Unreleased`
 
 **Interfaces:**
-- CLI commands: `servicedeskbench run --dataset PATH --adapter graph|http --output PATH`, `servicedeskbench score --report PATH`, and `servicedeskbench gate --report PATH --baseline PATH`.
+- CLI commands: `deskbench run --dataset PATH --adapter graph|http --output PATH`, `deskbench score --report PATH`, and `deskbench gate --report PATH --baseline PATH`.
 - `servicedesk_eval.py` re-exports the async `run_dataset(dataset_path: str | Path, adapter: AgentAdapter, output_path: str | Path, *, limits: ExecutionLimits | None = None) -> ReportPaths` workflow; the CLI constructs the selected Adapter only after configuration is resolved.
 - Contract matrix runs the same cases against Graph and HTTP adapters and reports semantic differences instead of treating HTTP 200 as success.
 
@@ -406,7 +406,7 @@ uv run pytest -q
 uv run ruff format --check src tests evals
 uv run ruff check src tests evals
 uv run mypy src tests evals
-uv run python -m servicedeskbench.cli --help
+uv run python -m deskbench.cli --help
 ```
 
 - [x] **Step 7: Run the opt-in tix integration suite against the available shared Tix development deployment:**
@@ -414,51 +414,51 @@ uv run python -m servicedeskbench.cli --help
 The suite was also checked without deployment configuration and correctly reported 2 skips; the shared-development run is recorded in T-003 below and is not confused with isolated-deployment evidence.
 
 ```bash
-SERVICEDESKBENCH_TIX_URL=... \
-SERVICEDESKBENCH_TIX_USERNAME=... \
-SERVICEDESKBENCH_TIX_PASSWORD=... \
+DESKBENCH_TIX_URL=... \
+DESKBENCH_TIX_USERNAME=... \
+DESKBENCH_TIX_PASSWORD=... \
   uv run pytest -m integration
 ```
 
 - [x] **Step 8: Review the final diff for clean package paths, git submodules, reports excluded from source control, and complete requirement coverage**
 
 The final audit verified:
-1. **Clean package paths**: Searched `src/`, `tests/`, `evals/`, and configuration files. `servicedeskbench` is the sole runtime package and CLI.
+1. **Clean package paths**: Searched `src/`, `tests/`, `evals/`, and configuration files. `deskbench` is the sole runtime package and CLI.
 2. **Submodules**: `git submodule status` is empty.
 3. **Artifacts & Reports**: `.gitignore` properly excludes `reports/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/`.
-4. **Clean Git history**: Git history starts cleanly with `chore: initialize ServiceDeskBench-Lite` without stale history or remote.
+4. **Clean Git history**: Git history starts cleanly with `chore: initialize deskbench` without stale history or remote.
 5. **Requirement coverage**: Full Lite scope implemented: contracts, trace normalization, runner lifecycle, 5 deterministic scorers, fault injection plans, reporting (JSON/JSONL/Markdown), regression gate, and CLI.
 6. **External blockers**: RAG source assets remain explicitly documented in manifest; automated deployment isolation and cleanup remain an external orchestration boundary.
 
 ### Architecture Review: relationship with tix (2026-09-02)
 
-The review confirmed that externalizing non-basic service-desk acceptance tests is a valid boundary: tix retains implementation tests and smoke checks, while ServiceDeskBench may own versioned cases, end-to-end business behavior, deterministic workflow scorers, RAG regression, and baseline reports. This is not itself over-design.
+The review confirmed that externalizing non-basic service-desk acceptance tests is a valid boundary: tix retains implementation tests and smoke checks, while deskbench may own versioned cases, end-to-end business behavior, deterministic workflow scorers, RAG regression, and baseline reports. This is not itself over-design.
 
 The current implementation now has a ticket-oriented HTTP MVP boundary. The HTTP Adapter maps Tix public Ticket endpoints, while `TixGraphAdapter` remains a generic protocol adapter rather than a claimed mapping of tix's internal `run_graph`/`resume_graph` entry points. Fault plans are not connected to a live adapter, RAG source assets are unavailable, and there is no deployment-backed report or baseline. Treat protocol tests as contract evidence, not real integration evidence.
 
-The next scope decision is explicit: (A) keep advanced evaluation inside tix, (B) retain ServiceDeskBench but first reduce it to a real tix HTTP black-box adapter plus a small deterministic scorer/report path, or (C) continue platform expansion only after defining the real tix run/cleanup/trace contract, isolation unit, fault-injection boundary, dataset ownership, and maintenance responsibility. Until the developer selects a path, defer Graph/Fault/S3/multi-adapter expansion and do not add evaluation-specific production branches to tix.
+The next scope decision is explicit: (A) keep advanced evaluation inside tix, (B) retain deskbench but first reduce it to a real tix HTTP black-box adapter plus a small deterministic scorer/report path, or (C) continue platform expansion only after defining the real tix run/cleanup/trace contract, isolation unit, fault-injection boundary, dataset ownership, and maintenance responsibility. Until the developer selects a path, defer Graph/Fault/S3/multi-adapter expansion and do not add evaluation-specific production branches to tix.
 
 ### Code Audit and Security Review
 
 - Fresh audit checks found no embedded credentials or private keys in the new package, datasets, tests, or metadata.
 - HTTP authentication remains confined to the adapter boundary; core contracts and scorers do not handle tix objects.
-- User-selected graph factory imports are explicit through `SERVICEDESKBENCH_GRAPH_FACTORY=module:attribute`; no shell execution is performed by the CLI.
+- User-selected graph factory imports are explicit through `DESKBENCH_GRAPH_FACTORY=module:attribute`; no shell execution is performed by the CLI.
 - Local/file dataset paths are supported synchronously and asynchronously; S3 loading uses the optional `remote` extra and asynchronous fsspec access. The current implementation reports an explicit backend error under Trio, and a real S3 contract test remains blocked without a configured object store.
 - No unresolved high-confidence security finding was identified in this pass.
 
 ### Risks and Decisions
 
-1. **Repository boundary:** the repository contains the ServiceDeskBench-Lite runtime and no tix implementation. The product identity is standalone rather than a sibling package or compatibility layer.
-2. **Git history:** implementation starts with a fresh repository initialization. The initial commit is `chore: initialize ServiceDeskBench-Lite`.
+1. **Repository boundary:** the repository contains the deskbench runtime and no tix implementation. The product identity is standalone rather than a sibling package or compatibility layer.
+2. **Git history:** implementation starts with a fresh repository initialization. The initial commit is `chore: initialize deskbench`.
 3. **tix API availability:** Graph and HTTP integration tests cannot be made fully executable from this checkout without a tix checkout/deployment. The plan therefore separates protocol-level tests from environment-gated integration tests.
 4. **Fault injection:** the first implementation uses injected provider wrappers and HTTP proxies, not production branches in tix.
-5. **Component design:** components are designed specifically to satisfy ServiceDeskBench contracts; domain model and CLI semantics target enterprise service desk evaluation.
+5. **Component design:** components are designed specifically to satisfy deskbench contracts; domain model and CLI semantics target enterprise service desk evaluation.
 
 ### Verification and Handoff
 
-Before implementation is declared complete, run the focused test after every task, then the full `pytest`, Ruff format/check, mypy, report JSON validation, and any available tix integration tests. The final Git verification must show a fresh single-line history beginning with `chore: initialize ServiceDeskBench-Lite`, no restored `origin` remote unless explicitly requested, and clean product paths. Record actual command results in the final change summary; do not claim tix integration passed when it was skipped because no deployment was configured.
+Before implementation is declared complete, run the focused test after every task, then the full `pytest`, Ruff format/check, mypy, report JSON validation, and any available tix integration tests. The final Git verification must show a fresh single-line history beginning with `chore: initialize deskbench`, no restored `origin` remote unless explicitly requested, and clean product paths. Record actual command results in the final change summary; do not claim tix integration passed when it was skipped because no deployment was configured.
 
-## T-002: ServiceDeskBench-Lite 文档体系整理
+## T-002: deskbench 文档体系整理
 
 **Kind:** maintenance
 **Status:** verified
@@ -490,7 +490,7 @@ P1 文档整理已完成。tix RAG 源资产和真实 tix 部署仍由 T-001 的
 
 ### Architecture
 
-ServiceDeskBench 将 Tix 视为外部系统，仅通过 `/auth/login`、`/tickets`、Ticket 详情、`transition` 与 `resume` 公开接口交互。业务句柄使用 `ticket_id`，审批恢复句柄使用详情中的 `thread_id`；部署或数据库生命周期负责清理，Adapter 不调用不存在的 run 删除接口。HTTP MVP 可使用共享开发部署，但该模式会在共享数据库中留下测试工单，不能证明部署隔离或自动清理。
+deskbench 将 Tix 视为外部系统，仅通过 `/auth/login`、`/tickets`、Ticket 详情、`transition` 与 `resume` 公开接口交互。业务句柄使用 `ticket_id`，审批恢复句柄使用详情中的 `thread_id`；部署或数据库生命周期负责清理，Adapter 不调用不存在的 run 删除接口。HTTP MVP 可使用共享开发部署，但该模式会在共享数据库中留下测试工单，不能证明部署隔离或自动清理。
 
 ### Out of Scope
 
@@ -568,7 +568,7 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
 
 ### Architecture
 
-使用 CLI `servicedeskbench run --adapter http` 运行版本化数据集，生成包含状态、轨迹和 4 类 Scorer 评分的 `summary.json`、`cases.jsonl`、`markdown.md`；将完整通过的审批用例运行结果固化为 `reports/baseline/`；使用 `servicedeskbench gate --baseline ...` 验证一致性通过，并注入劣化模拟数据验证完成率回退、P95 延迟恶化、工具调用无解释增长与硬安全门禁熔断。
+使用 CLI `deskbench run --adapter http` 运行版本化数据集，生成包含状态、轨迹和 4 类 Scorer 评分的 `summary.json`、`cases.jsonl`、`markdown.md`；将完整通过的审批用例运行结果固化为 `reports/baseline/`；使用 `deskbench gate --baseline ...` 验证一致性通过，并注入劣化模拟数据验证完成率回退、P95 延迟恶化、工具调用无解释增长与硬安全门禁熔断。
 
 ### Out of Scope
 
@@ -585,13 +585,13 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
 ### Verification
 
 - 受控环境注入 Tix 测试账号运行 CLI 生成报告：
-  - `uv run servicedeskbench run --adapter http --dataset datasets/servicedesk_v1/approval.yaml --output reports` → `evaluated 1 cases; report: reports/2026-09-05T081622.342540Z`（退出码 0）。
+  - `uv run deskbench run --adapter http --dataset datasets/servicedesk_v1/approval.yaml --output reports` → `evaluated 1 cases; report: reports/2026-09-05T081622.342540Z`（退出码 0）。
   - 该次运行各 Scorer 得分：outcome 1.000、workflow_invariants 1.000、trajectory 1.000、resilience 1.000；最终工单状态为 `closed`，带完整 12 条 trace 事件。
-  - `uv run servicedeskbench score --report reports/2026-09-05T081622.342540Z` → `scored 1/1 cases`（退出码 0）。
-  - `uv run servicedeskbench score --report reports/2026-09-05T081622.342540Z --json` → `{"case_count": 1, "passed_count": 1}`。
+  - `uv run deskbench score --report reports/2026-09-05T081622.342540Z` → `scored 1/1 cases`（退出码 0）。
+  - `uv run deskbench score --report reports/2026-09-05T081622.342540Z --json` → `{"case_count": 1, "passed_count": 1}`。
 - 基线固化与 Gate 一致性验证：
   - 复制为基线至 `reports/baseline/`，派生指标：硬安全门禁率均为 0.0，completion_rate=1.0，P95 延迟=12.8s。
-  - `uv run servicedeskbench gate --report reports/2026-09-05T081622.342540Z --baseline reports/baseline` → `{"failures": [], "passed": true}`（退出码 0）。
+  - `uv run deskbench gate --report reports/2026-09-05T081622.342540Z --baseline reports/baseline` → `{"failures": [], "passed": true}`（退出码 0）。
 - Gate 多维熔断验证：
   - 完成率回退（completion_regression）：`{"failures": ["completion_regression"], "passed": false}`（退出码 1）。
   - P95 延迟恶化（p95_latency_regression）：`{"failures": ["p95_latency_regression"], "passed": false}`（退出码 1）。
@@ -603,11 +603,11 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
   - `uv run ruff check src tests evals` → `All checks passed!`。
   - `uv run mypy src tests evals` → `Success: no issues found in 52 source files`。
 
-## T-006: Tix 与 ServiceDeskBench 对接缺陷修复与多数据集真实闭环验证
+## T-006: Tix 与 deskbench 对接缺陷修复与多数据集真实闭环验证
 
 **Kind:** bugfix/feature
 **Status:** verified
-**Goal:** 解决 Tix 与 ServiceDeskBench 在 HTTP 接口、错误契约、状态流转、轮询竞态与评测用例规范上的对接问题，并在真实 Tix 服务上实现全量数据集端到端闭环验证。
+**Goal:** 解决 Tix 与 deskbench 在 HTTP 接口、错误契约、状态流转、轮询竞态与评测用例规范上的对接问题，并在真实 Tix 服务上实现全量数据集端到端闭环验证。
 
 ### Architecture
 
@@ -631,8 +631,8 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
 
 ### Verification
 
-- `cd servicedeskbench && uv run pytest -q` → `112 passed, 2 skipped`
-- `cd servicedeskbench && uv run ruff format --check src tests evals && uv run ruff check src tests evals && uv run mypy src tests evals` → 全部通过
+- `cd deskbench && uv run pytest -q` → `112 passed, 2 skipped`
+- `cd deskbench && uv run ruff format --check src tests evals && uv run ruff check src tests evals && uv run mypy src tests evals` → 全部通过
 - `cd tix/backend && uv run pytest tests/ --ignore=tests/e2e -q && uv run ruff check src tests scripts && uv run mypy src` → 838 passed, 全部通过
 - 真实 Tix 部署环境验证：
   - `pytest tests/test_tix_integration.py` → `2 passed in 28.20s`

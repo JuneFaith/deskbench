@@ -2,7 +2,7 @@
 
 ## 目标
 
-ServiceDeskBench-Lite 评估服务台 Agent 的业务结果、执行路径、流程合规性、故障恢复、检索质量和性能证据，而不是只检查最终文本。
+deskbench 评估服务台 Agent 的业务结果、执行路径、流程合规性、故障恢复、检索质量和性能证据，而不是只检查最终文本。
 
 ## 执行流水线
 
@@ -59,4 +59,4 @@ Runner 发生错误时仍返回带 `error` 和 `CanonicalTrace` 错误事件的 
 
 ## 版本与依赖边界
 
-运行时包为 `servicedeskbench`。核心依赖 Pydantic、PyYAML、httpx 和 AnyIO；S3 支持通过 `remote` extra 提供。tix 源码和部署不属于本仓库，真实集成依赖环境变量和外部服务。
+运行时包为 `deskbench`。核心依赖 Pydantic、PyYAML、httpx 和 AnyIO；S3 支持通过 `remote` extra 提供。tix 源码和部署不属于本仓库，真实集成依赖环境变量和外部服务。

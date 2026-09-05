@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from servicedeskbench.adapters.base import AgentAdapter, PreparedRun, RunHandle
-from servicedeskbench.contracts import (
+from deskbench.adapters.base import AgentAdapter, PreparedRun, RunHandle
+from deskbench.contracts import (
     AgentRun,
     CanonicalState,
     CanonicalTrace,
     Case,
 )
-from servicedeskbench.evaluation import run_dataset
+from deskbench.evaluation import run_dataset
 
 
 class DeterministicAdapter(AgentAdapter):

@@ -1,6 +1,6 @@
-"""Tests for deterministic ServiceDeskBench scorers."""
+"""Tests for deterministic Deskbench scorers."""
 
-from servicedeskbench.contracts import (
+from deskbench.contracts import (
     AgentRun,
     CanonicalState,
     CanonicalTrace,
@@ -8,10 +8,10 @@ from servicedeskbench.contracts import (
     TraceEvent,
     TraceEventKind,
 )
-from servicedeskbench.scorers.invariants import score_invariants
-from servicedeskbench.scorers.outcome import score_outcome
-from servicedeskbench.scorers.resilience import score_resilience
-from servicedeskbench.scorers.trajectory import score_trajectory
+from deskbench.scorers.invariants import score_invariants
+from deskbench.scorers.outcome import score_outcome
+from deskbench.scorers.resilience import score_resilience
+from deskbench.scorers.trajectory import score_trajectory
 
 
 def _case(**expected: object) -> Case:

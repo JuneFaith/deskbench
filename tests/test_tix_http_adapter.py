@@ -5,9 +5,9 @@ import json
 import httpx
 import pytest
 
-from servicedeskbench.adapters.base import RunHandle
-from servicedeskbench.adapters.tix_http import HttpAdapterError, TixHttpAdapter
-from servicedeskbench.contracts import Case
+from deskbench.adapters.base import RunHandle
+from deskbench.adapters.tix_http import HttpAdapterError, TixHttpAdapter
+from deskbench.contracts import Case
 
 
 @pytest.mark.anyio

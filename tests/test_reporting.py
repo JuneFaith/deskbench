@@ -3,14 +3,14 @@
 import json
 from pathlib import Path
 
-from servicedeskbench.contracts import (
+from deskbench.contracts import (
     AgentRun,
     CanonicalState,
     CanonicalTrace,
     ExperimentMetadata,
     ScoreResult,
 )
-from servicedeskbench.reporting.json_report import (
+from deskbench.reporting.json_report import (
     EvaluationReport,
     read_report,
     write_report,
@@ -81,7 +81,7 @@ def test_summary_derives_retrieval_metrics_from_persisted_scores(
 
     paths = write_report([run], tmp_path)
 
-    from servicedeskbench.reporting.summary import read_summary
+    from deskbench.reporting.summary import read_summary
 
     summary = read_summary(paths.summary)
 
@@ -125,7 +125,7 @@ def test_summary_accepts_complete_summary_without_optional_explanation(
         )
     )
 
-    from servicedeskbench.reporting.summary import read_summary
+    from deskbench.reporting.summary import read_summary
 
     loaded = read_summary(summary)
 
@@ -145,7 +145,7 @@ def test_summary_accepts_report_directory(tmp_path: Path) -> None:
 
     paths = write_report([run], tmp_path)
 
-    from servicedeskbench.reporting.summary import read_summary
+    from deskbench.reporting.summary import read_summary
 
     summary = read_summary(paths.root)
 

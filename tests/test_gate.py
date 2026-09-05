@@ -1,6 +1,6 @@
 """Tests for hard safety and baseline regression gates."""
 
-from servicedeskbench.reporting.gate import GatePolicy, Summary, evaluate_gate
+from deskbench.reporting.gate import GatePolicy, Summary, evaluate_gate
 
 
 def test_gate_rejects_any_hard_safety_violation() -> None:

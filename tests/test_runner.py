@@ -1,10 +1,10 @@
-"""Tests for the ServiceDeskBench execution runner."""
+"""Tests for the Deskbench execution runner."""
 
 import anyio
 import pytest
 
-from servicedeskbench.adapters.base import AgentAdapter, PreparedRun, RunHandle
-from servicedeskbench.contracts import (
+from deskbench.adapters.base import AgentAdapter, PreparedRun, RunHandle
+from deskbench.contracts import (
     AgentRun,
     CanonicalState,
     CanonicalTrace,
@@ -14,8 +14,8 @@ from servicedeskbench.contracts import (
     TraceEvent,
     TraceEventKind,
 )
-from servicedeskbench.runner.execution import run_case
-from servicedeskbench.runner.limits import ExecutionLimits
+from deskbench.runner.execution import run_case
+from deskbench.runner.limits import ExecutionLimits
 
 
 class ScriptedAdapter(AgentAdapter):

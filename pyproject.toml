@@ -3,11 +3,11 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "servicedeskbench"
+name = "deskbench"
 version = "0.1.0"
 description = "Evaluation and reliability benchmark for enterprise service-desk agents"
 readme = "README.md"
-authors = [{ name = "ServiceDeskBench contributors" }]
+authors = [{ name = "deskbench contributors" }]
 requires-python = ">=3.10"
 license = { text = "MIT License" }
 classifiers = [
@@ -37,11 +37,11 @@ dev = [
 ]
 
 [project.scripts]
-servicedeskbench = "servicedeskbench.cli:main"
+deskbench = "deskbench.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["servicedeskbench*"]
+include = ["deskbench*"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

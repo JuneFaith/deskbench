@@ -2,12 +2,12 @@
 
 import pytest
 
-from servicedeskbench.adapters.base import (
+from deskbench.adapters.base import (
     AgentAdapter,
     PreparedRun,
     RunHandle,
 )
-from servicedeskbench.contracts import AgentRun, CanonicalState, CanonicalTrace, Case
+from deskbench.contracts import AgentRun, CanonicalState, CanonicalTrace, Case
 
 
 class ContractAdapter:

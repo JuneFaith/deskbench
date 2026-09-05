@@ -1,6 +1,6 @@
 """Tests for deterministic retrieval metrics."""
 
-from servicedeskbench.scorers.retrieval import (
+from deskbench.scorers.retrieval import (
     RetrievalExample,
     RetrievalResult,
     score_retrieval,
