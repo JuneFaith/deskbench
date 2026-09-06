@@ -18,6 +18,7 @@ layers:
     - review.yaml
     - recovery.yaml
     - network.yaml
+    - autonomous.yaml
   fault_injection:
     - degradation.yaml
     - security.yaml
@@ -31,5 +32,6 @@ files:
   - review.yaml
   - recovery.yaml
   - network.yaml
+  - autonomous.yaml
   - degradation.yaml
   - security.yaml

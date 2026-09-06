@@ -62,6 +62,7 @@ class ExpectedOutcome(BaseModel):
     resolution_required: bool = False
     human_takeover: bool = False
     needs_review: bool = False
+    auto_resolved: bool | None = None
 
 
 class Policy(BaseModel):

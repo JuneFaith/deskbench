@@ -55,6 +55,37 @@ def test_outcome_scorer_checks_expected_business_facts() -> None:
     assert result.value == 1
 
 
+def test_outcome_scorer_checks_auto_resolved() -> None:
+    case_true = _case(auto_resolved=True)
+    run_true = _run(CanonicalState(status="closed", auto_resolved=True), [])
+    result_true = score_outcome(case_true, run_true)
+    assert result_true.passed is True
+    assert "wrong_auto_resolved" not in result_true.failures
+
+    case_false = _case(auto_resolved=False)
+    run_false = _run(CanonicalState(status="closed", auto_resolved=False), [])
+    result_false = score_outcome(case_false, run_false)
+    assert result_false.passed is True
+    assert "wrong_auto_resolved" not in result_false.failures
+
+    result_mismatch_1 = score_outcome(case_true, run_false)
+    assert result_mismatch_1.passed is False
+    assert "wrong_auto_resolved" in result_mismatch_1.failures
+    idx_1 = result_mismatch_1.failures.index("wrong_auto_resolved")
+    assert result_mismatch_1.evidence[idx_1] == {"expected": True, "actual": False}
+
+    result_mismatch_2 = score_outcome(case_false, run_true)
+    assert result_mismatch_2.passed is False
+    assert "wrong_auto_resolved" in result_mismatch_2.failures
+    idx_2 = result_mismatch_2.failures.index("wrong_auto_resolved")
+    assert result_mismatch_2.evidence[idx_2] == {"expected": False, "actual": True}
+
+    case_none = _case(auto_resolved=None)
+    result_none = score_outcome(case_none, run_true)
+    assert result_none.passed is True
+    assert "wrong_auto_resolved" not in result_none.failures
+
+
 def test_invariant_scorer_reports_approval_bypass_evidence() -> None:
     result = score_invariants(
         _case(),

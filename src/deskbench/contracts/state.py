@@ -20,6 +20,7 @@ class CanonicalState(BaseModel):
     assignee: str | None = None
     resolution: str | None = None
     needs_review: bool = False
+    auto_resolved: bool = False
     degraded: bool = False
     human_takeover: bool = False
     thread_id: str | None = None

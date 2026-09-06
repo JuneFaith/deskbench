@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-deskbench 是面向企业服务台 Agent 的评测与可靠性检测基准。当前已完成 T-001 至 T-012 阶段任务，提供本地协议级评测、5 类确定性 Scorer（Outcome、Workflow Invariants、Trajectory、Resilience、Retrieval）、报告和回归门禁。已支持 Tix HTTP、Graph 与 Retrieval Adapter，并在真实 Tix 部署上完成全生命周期（咨询、审批、方案审查放行/打回、自愈重分派、重大网络故障）评测集与提精后 RAG 混合检索（含跨领域复合难例与显式硬负样本）的端到端闭环验证与基线固化。评测资产采用三层治理模型（`core_lifecycle`、`fault_injection`、`rag_benchmarks`）并由 manifest 结构化管理；提供环境就绪与坐席防饱和感知（`deskbench env status`）及非侵入式测试生命周期自动清理能力（`deskbench env clean` / `deskbench run --pre-clean`）。
+deskbench 是面向企业服务台 Agent 的评测与可靠性检测基准。当前已完成 T-001 至 T-013 阶段任务，提供本地协议级评测、5 类确定性 Scorer（Outcome、Workflow Invariants、Trajectory、Resilience、Retrieval）、报告和回归门禁。已支持 Tix HTTP、Graph 与 Retrieval Adapter，并在真实 Tix 部署上完成全生命周期（咨询、审批、方案审查放行/打回、自愈重分派、重大网络故障、分级自主解决与安全护轨一票否决）评测集与提精后 RAG 混合检索（含跨领域复合难例与显式硬负样本）的端到端闭环验证与基线固化。评测资产采用三层治理模型（`core_lifecycle`、`fault_injection`、`rag_benchmarks`）并由 manifest 结构化管理；核心契约与评分器支持针对 AI 分级自主解决（`auto_resolved`）的确定性度量；提供环境就绪与坐席防饱和感知（`deskbench env status`）及非侵入式测试生命周期自动清理能力（`deskbench env clean` / `deskbench run --pre-clean`）。
 
 ## 术语表
 
@@ -45,10 +45,11 @@ Regression Gate
 - [D-005](docs/decisions.md#d-005-rag-混合检索端到端评测体系与多源基准)：RAG 混合检索端到端评测体系与多源基准。
 - [D-006](docs/decisions.md#d-006-工单全生命周期场景扩充分层治理与-rag-复合检索提精)：工单全生命周期场景扩充、分层治理与 RAG 复合检索提精。
 - [D-007](docs/decisions.md#d-007-评测环境健康探查防饱和感知与测试生命周期清理)：评测环境健康探查、防饱和感知与测试生命周期清理。
+- [D-008](docs/decisions.md#d-008-ai-分级自主解决断言契约护轨一票否决与评测闭环)：AI 分级自主解决断言契约、护轨一票否决与评测闭环。
 
 ## 当前任务
 
-详细实施状态见 [`docs/task.md`](docs/task.md)（已完成基础架构搭建 T-001、文档整理 T-002、HTTP 黑盒验收 T-003、审批生命周期修复 T-004、首批报告与基线固化 T-005、对接缺陷修复与真实闭环验证 T-006、真实混合检索集成与执行加固 T-007、远端仓库配置与推送 T-008、故障感知与跳过语义加固 T-009、RAG 混合检索基线建立与 CLI 集成 T-010、数据演进与 Manifest 分层治理 T-011、评测环境探查与测试生命周期清理 T-012）。后续关注点：
+详细实施状态见 [`docs/task.md`](docs/task.md)（已完成基础架构搭建 T-001、文档整理 T-002、HTTP 黑盒验收 T-003、审批生命周期修复 T-004、首批报告与基线固化 T-005、对接缺陷修复与真实闭环验证 T-006、真实混合检索集成与执行加固 T-007、远端仓库配置与推送 T-008、故障感知与跳过语义加固 T-009、RAG 混合检索基线建立与 CLI 集成 T-010、数据演进与 Manifest 分层治理 T-011、评测环境探查与测试生命周期清理 T-012、分级自主解决评测与安全护轨断言 T-013）。后续关注点：
 
 1. 自动化评测沙箱与 CI/CD 容器化流水线端到端编排；
 2. 持续扩充真实故障注入与多场景评测用例。

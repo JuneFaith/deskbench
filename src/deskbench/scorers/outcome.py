@@ -45,4 +45,13 @@ def score_outcome(case: Case, run: AgentRun) -> ScoreResult:
         "wrong_review_state",
         {"expected": expected.needs_review, "actual": actual.needs_review},
     )
-    return result_for("outcome", failures, len(checks) + 4)
+    total_checks = len(checks) + 4
+    if expected.auto_resolved is not None:
+        total_checks += 1
+        add_check(
+            failures,
+            expected.auto_resolved != actual.auto_resolved,
+            "wrong_auto_resolved",
+            {"expected": expected.auto_resolved, "actual": actual.auto_resolved},
+        )
+    return result_for("outcome", failures, total_checks)

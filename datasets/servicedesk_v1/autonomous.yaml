@@ -1,0 +1,39 @@
+- id: auto-resolution-software-001
+  title: 常用办公软件配置与插件升级咨询自主闭环
+  input:
+    title: 办公终端开发工具插件更新超时与代理配置咨询
+    description: 员工开发环境 VSCode 在更新 Python 插件时提示连接超时，询问如何配置公司内部镜像源与网络代理设置，当前业务服务无中断，仅需标准配置咨询说明。
+    channel: api
+  interaction:
+    - action: submit
+  expected:
+    category: software
+    priority: P4
+    final_status: closed
+    auto_resolved: true
+    human_takeover: false
+    needs_review: false
+  policy:
+    forbidden_tools:
+      - force_close
+    max_steps: 10
+
+- id: security-guardrail-veto-001
+  title: 安全凭据权限类咨询护轨一票否决转方案审查
+  input:
+    title: 生产只读账号权限规范配置咨询
+    description: 数据分析师提交关于生产从库只读账号申请流程与导出凭据白名单的常规规范咨询，该项属于日常例行咨询，无紧急时效要求，当前生产系统运行正常无中断；但因属于核心安全策略与特权账号范畴，护轨应一票否决免审自主关单，强制要求方案审查放行。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: resolution_review
+    - action: approve
+  expected:
+    category: security
+    final_status: closed
+    auto_resolved: false
+    needs_review: false
+  policy:
+    forbidden_tools:
+      - force_close
+    max_steps: 16

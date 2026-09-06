@@ -602,6 +602,7 @@ def _canonical_state(
         "resolution",
         "needs_review",
         "review_required",
+        "auto_resolved",
         "thread_id",
     }
     raw = {key: value for key, value in ticket.items() if key not in known}
@@ -614,6 +615,7 @@ def _canonical_state(
             ticket.get("review_required", False) or ticket.get("needs_review", False)
         )
     )
+    canonical_auto_resolved = bool(ticket.get("auto_resolved", False))
     has_degraded = bool(ticket.get("degraded", False))
     if not has_degraded and events:
         has_degraded = any(
@@ -632,6 +634,7 @@ def _canonical_state(
         assigned=ticket.get("assignee") is not None,
         resolution=_optional_string(ticket.get("resolution")),
         needs_review=canonical_needs_review,
+        auto_resolved=canonical_auto_resolved,
         degraded=has_degraded,
         human_takeover=bool(ticket.get("human_takeover", False)) or is_escalated,
         thread_id=_optional_string(ticket.get("thread_id")),

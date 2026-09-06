@@ -76,4 +76,13 @@
   - 忽视坐席负载累积，任由并发与长尾测试跑至坐席耗尽后随机失败（严重破坏基准评测结果的稳定性与可复现性）。
 - **Consequence:** Deskbench 具备了端到端自包含环境健康检查（`deskbench env status`）与一键清理（`deskbench env clean`）能力；`run --pre-clean` 保证评测始终在干净的专家零负载状态下启动；全量 12 个场景与 76 条检索用例在多次反复执行下保持 100% 稳定通过。
 
+## D-008: AI 分级自主解决断言契约、护轨一票否决与评测闭环
 
+**Status:** adopted
+
+- **Decision:** 在 Deskbench 核心评测契约模型（`ExpectedOutcome`、`CanonicalState`）与评分体系（`score_outcome`）中正式引入 `auto_resolved: bool | None` 强类型断言字段，并在 `TixHttpAdapter` 中打通对被测系统真实工单该字段的规范映射；新增自主解决评测集 `autonomous.yaml`，覆盖低风险常规咨询的无人值守直接闭环（`auto-resolution-software-001`，断言 `auto_resolved: true`，全程 0 次审批打断）以及敏感安全权限申请被护轨一票否决转入方案审查（`security-guardrail-veto-001`，断言 `auto_resolved: false`，经方案审查 `approve` 后闭环）；将该场景集纳入 `manifest.yaml` 的 `core_lifecycle` 分层进行持续门禁守护。
+- **Reason:** 遵循 D-003 原则，服务台 Agent 演进至分级自主解决后，评测层必须具备对“该自主闭环时自主闭环、该人工审查时坚决阻断”双向安全边界的度量能力；粗粒度的终态比对（如仅断言 `final_status: closed`）无法识别大模型越权免审关单（False Positive Autonomous Resolution）或保守误拦截，通过显式验证 `auto_resolved` 契约能够准确审计系统对安全护轨（C-024）和分级策略（C-012）的遵守程度。
+- **Rejected:** 
+  - 仅通过 `final_status == "closed"` 进行断言（无法区分是否真正经过免审通道还是经过人工审批后关闭）。
+  - 将自主解决用例混杂于普通 Happy Path 场景中（丧失对护轨一票否决边界与自治安全阈值的专项可追踪性）。
+- **Consequence:** Deskbench 具备了对生产级服务台 AI 自治能力与安全护轨的客观度量能力；用例规模扩展至 14 个（12 个核心流转用例，2 个降级跳过用例），在真实 Tix HTTP 服务上 100% 满分通过，硬性门禁保持零失败。
