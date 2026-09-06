@@ -63,6 +63,12 @@ isolation or automatic cleanup.
 
 ## Other adapters
 
-The existing Graph and retrieval adapters remain protocol-level components and
-are not claimed as real Tix integration in this MVP. Their tests use injected
-local collaborators and should not be confused with deployment-backed evidence.
+The Graph adapter remains a protocol-level component whose tests use injected
+local collaborators, and should not be confused with deployment-backed evidence.
+
+`TixHttpRetrievalClient` and `TixRetrievalAdapter` are now fully integrated and
+verified as real deployment-backed integration for `/api/kb/search` and
+`/api/tickets/search` per T-007, T-010, and D-005. They support direct HTTP
+retrieval against online Tix deployments with token or credential authentication,
+source-specific queries (`kb` and `ticket`), and multi-metric benchmark evaluation.
+

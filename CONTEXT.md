@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-deskbench 是面向企业服务台 Agent 的评测与可靠性检测基准。当前提供本地协议级评测、5 类确定性 Scorer（Outcome、Workflow Invariants、Trajectory、Resilience、Retrieval）、报告和回归门禁。已支持 Tix HTTP、Graph 与 Retrieval Adapter，并在真实 Tix 部署上完成 happy_path、approval、security 数据集与真实混合检索的端到端闭环验证及基线固化。数据集与 RAG 资产均已就绪并由 manifest 统一管理；独立部署隔离与自动清理属于外部编排边界。
+deskbench 是面向企业服务台 Agent 的评测与可靠性检测基准。当前已完成 T-001 至 T-010 阶段任务，提供本地协议级评测、5 类确定性 Scorer（Outcome、Workflow Invariants、Trajectory、Resilience、Retrieval）、报告和回归门禁。已支持 Tix HTTP、Graph 与 Retrieval Adapter，并在真实 Tix 部署上完成 happy_path、approval、degradation、security 数据集与真实混合检索（KB 与工单）的端到端闭环验证及基线固化。数据集与 RAG 资产均已就绪并由 manifest 统一管理；独立部署隔离与自动清理属于外部编排边界。
 
 ## 术语表
 
@@ -41,10 +41,12 @@ Regression Gate
 - [D-001](docs/decisions.md#d-001-tix-is-an-external-system-under-test)：tix 是外部被测系统，核心层不导入 tix。
 - [D-002](docs/decisions.md#d-002-lite-version-uses-deterministic-core-gates)：Lite 版本优先使用确定性核心门禁。
 - [D-003](docs/decisions.md#d-003-test-responsibility-split-and-externalized-advanced-acceptance-evaluation)：测试职责分层与高级验收评测外置。
+- [D-004](docs/decisions.md#d-004-适配器故障注入能力边界与黑盒评测跳过语义)：适配器故障注入能力边界与黑盒评测跳过语义。
+- [D-005](docs/decisions.md#d-005-rag-混合检索端到端评测体系与多源基准)：RAG 混合检索端到端评测体系与多源基准。
 
 ## 当前任务
 
-详细实施状态见 [`docs/task.md`](docs/task.md)（含基础架构搭建 T-001、文档整理 T-002、HTTP 黑盒验收 T-003、审批生命周期修复 T-004、首批报告与基线固化 T-005、对接缺陷修复与真实闭环验证 T-006、真实混合检索集成与执行加固 T-007）。后续关注点：
+详细实施状态见 [`docs/task.md`](docs/task.md)（已完成基础架构搭建 T-001、文档整理 T-002、HTTP 黑盒验收 T-003、审批生命周期修复 T-004、首批报告与基线固化 T-005、对接缺陷修复与真实闭环验证 T-006、真实混合检索集成与执行加固 T-007、远端仓库配置与推送 T-008、故障感知与跳过语义加固 T-009、RAG 混合检索基线建立与 CLI 集成 T-010）。后续关注点：
 
 1. 独立部署隔离与自动清理属于外部部署/容器编排范围；
 2. 持续扩充真实故障注入与多场景评测用例。
