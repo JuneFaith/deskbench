@@ -174,3 +174,27 @@ def test_file_url_directory_loads_manifest_and_provenance(tmp_path: Path) -> Non
 
     assert loaded[0].dataset_version == "file_directory_v1"
     assert loaded[0].source == "file URL fixture"
+
+
+def test_agent_run_defaults_to_not_skipped() -> None:
+    run = AgentRun(
+        run_id="run-1",
+        case_id="case-1",
+        adapter="test",
+        final_state=CanonicalState(status="closed"),
+        trace=CanonicalTrace(),
+    )
+    assert run.skipped is False
+    assert run.skip_reason is None
+
+    skipped_run = AgentRun(
+        run_id="run-2",
+        case_id="case-2",
+        adapter="test",
+        final_state=CanonicalState(status="closed"),
+        trace=CanonicalTrace(),
+        skipped=True,
+        skip_reason="adapter does not support fault injection",
+    )
+    assert skipped_run.skipped is True
+    assert skipped_run.skip_reason == "adapter does not support fault injection"

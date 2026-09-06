@@ -18,6 +18,7 @@ class TraceEventKind(str, Enum):
     RESUME = "resume"
     ERROR = "error"
     DEGRADATION = "degradation"
+    LIFECYCLE = "lifecycle"
 
 
 class TraceEvent(BaseModel):
@@ -41,6 +42,7 @@ class TraceEvent(BaseModel):
     retries: int = Field(default=0, ge=0)
     ticket_id: str | None = None
     actor_id: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
     raw: dict[str, Any] = Field(default_factory=dict)
 
 

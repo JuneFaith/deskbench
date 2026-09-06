@@ -6,6 +6,11 @@ from uuid import uuid4
 
 from deskbench.adapters.base import AgentAdapter, PreparedRun, RunHandle
 from deskbench.contracts import AgentRun, CanonicalState, Case
+from deskbench.contracts.cases import (  # noqa: F401
+    FaultComponent,
+    FaultMode,
+    FaultPlan,
+)
 from deskbench.trace import normalize_trace
 
 
@@ -40,6 +45,10 @@ class TixGraphAdapter(AgentAdapter):
         self._graph_factory = graph_factory
         self._adapter_name = adapter_name
         self._executors: dict[str, GraphExecutor] = {}
+
+    def supports_fault(self, fault: FaultPlan) -> bool:
+        """TixGraphAdapter runs in-process and can support dependency fault injection via graph factories."""
+        return True
 
     async def prepare(self, case: Case) -> PreparedRun:
         """Create an isolated graph executor for a case."""

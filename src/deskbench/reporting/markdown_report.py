@@ -14,7 +14,9 @@ def render_markdown(runs: list[AgentRun], report_id: str) -> str:
                 f"- Trace events: {len(run.trace.events)}",
             ]
         )
-        if run.error:
+        if run.skipped:
+            lines.append(f"- Skipped: `{run.skip_reason or 'unsupported by adapter'}`")
+        elif run.error:
             lines.append(f"- Error: `{run.error}`")
         for score in run.scores:
             marker = "PASS" if score.passed else "FAIL"

@@ -697,3 +697,40 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
 - `deskbench gate --report reports/2026-09-05T185814.498880Z/summary.json` → `{"failures": [], "passed": true}`
 - `uv run ruff check src tests evals && uv run mypy src tests evals` → 全部通过
 
+## T-009: 适配器故障注入能力感知、跳过语义与 HTTP 409 单飞行竞态加固
+
+**Kind:** feature/bugfix
+**Status:** verified
+**Goal:** 遵循 D-004 决策，在评测适配器协议中规范故障注入能力的显式感知与跳过机制，解决黑盒 HTTP 评测中对服务端内部依赖故障的假阴性误判；并在 `TixHttpAdapter.resume` 中针对异步管线单飞行 409 竞态增加有界重试。
+
+### Architecture
+
+1. **能力感知契约（Adapter Capability Contract）**：在 `AgentAdapter` Protocol 中增加 `supports_fault(fault: FaultPlan) -> bool` 及辅助判定函数 `adapter_supports_fault`。`TixHttpAdapter` 明确支持客户端交互故障（如 `duplicate_resume`），拒绝服务端组件故障（`llm`、`embedding`）；`TixGraphAdapter` 具备在体沙箱能力，支持全量故障注入。
+2. **Runner 与 Evaluation 跳过语义**：`run_case` 在适配器不支持用例所要求的故障时，返回标记为 `skipped=True` 的 `AgentRun`（终态为 `skipped`，并在 Trace 中追加 `LIFECYCLE` 类型的跳过事件和原因说明）；`_evaluate_loaded_cases` 对跳过的用例置空 `scores`，不触发 4 类确定性 Scorer 的无效比对。
+3. **报告与 CLI 审计闭环**：`AgentRun` 增加 `skipped` 与 `skip_reason` 属性；`write_report` 在 `summary.json` 中输出 `skipped_count` 并将跳过用例从通过率分母中规范剥离；Markdown 报告生成器显式渲染跳过标记与原因；`deskbench score` 命令行在文本输出与 `--json` 输出中均展示 `skipped_count`；Summary 解析引擎在计算门禁 `completion_rate` 时仅统计实际执行的有效用例。
+4. **HTTP 409 单飞行竞态加固**：针对 Tix 服务端调度器的 `run_lock` 单飞行机制，在 `TixHttpAdapter.resume` 中对 HTTP 409（`PIPELINE_RUNNING`）错误增加在 `submit_timeout` 内以 `poll_interval` 间隔的有界重试，避免快速连续恢复时的微秒级时序锁竞争。
+
+### Requirements
+
+- [x] 在 `AgentAdapter` 协议与 `deskbench/adapters/base.py` 中定义 `supports_fault` 与 `adapter_supports_fault`。
+- [x] 在 `TixHttpAdapter` 与 `TixGraphAdapter` 中精准实现 `supports_fault`。
+- [x] 在 `runner/execution.py` 中增加对适配器不支持故障时的优雅跳过处理，保留结构化 `AgentRun` 与生命周期审计事件。
+- [x] 在 `evaluation.py` 中确保跳过用例不执行 Scorer 评分。
+- [x] 在 `reporting`（JSON、Markdown、Summary）与 `cli.py` 中支持 `skipped_count` 统计与跳过信息展示。
+- [x] 在 `TixHttpAdapter.resume` 中实现 HTTP 409（工单已有管线运行中）的有界退避重试。
+- [x] 补充适配器能力契约、Runner 跳过、报告生成、CLI 展示以及 409 重试的完备单元测试。
+
+### Verification
+
+- `uv run ruff check src tests evals` → `All checks passed!`
+- `uv run mypy src tests evals` → `Success: no issues found in 53 source files`
+- `uv run pytest -q` → `93 passed, 2 skipped in 0.76s`
+- 覆盖测试模块：
+  - `tests/test_adapter_contract.py`：测试适配器协议方法及 fallback 逻辑通过。
+  - `tests/test_tix_http_adapter.py`：测试 `supports_fault` 判定与 `resume` 409 重试及超时通过。
+  - `tests/test_tix_graph_adapter.py`：测试沙箱适配器支持全量故障通过。
+  - `tests/test_runner.py`：测试不支持故障用例的优雅跳过及生命周期事件通过。
+  - `tests/test_reporting.py`：测试报告与 Summary 包含 `skipped_count` 及完成率正确计算通过。
+  - `tests/test_cli.py`：测试 CLI `score` 输出包含跳过数量通过。
+
+

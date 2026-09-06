@@ -1,5 +1,7 @@
 """Tests for the Deskbench execution runner."""
 
+from pathlib import Path
+
 import anyio
 import pytest
 
@@ -10,6 +12,8 @@ from deskbench.contracts import (
     CanonicalTrace,
     Case,
     CaseAction,
+    FaultComponent,
+    FaultPlan,
     Interaction,
     TraceEvent,
     TraceEventKind,
@@ -19,6 +23,9 @@ from deskbench.runner.limits import ExecutionLimits
 
 
 class ScriptedAdapter(AgentAdapter):
+    def supports_fault(self, fault: FaultPlan) -> bool:
+        return True
+
     def __init__(self, *, fail: bool = False, interrupt: bool = True) -> None:
         self.fail = fail
         self.interrupt = interrupt
@@ -221,3 +228,86 @@ async def test_runner_preserves_adapter_and_elapsed_time_on_failure(case: Case) 
 
     assert result.adapter == "SlowFailAdapter"
     assert result.duration_ms is not None and result.duration_ms >= 10
+
+
+@pytest.mark.anyio
+async def test_runner_skips_case_when_adapter_does_not_support_fault() -> None:
+    class UnsupportedFaultAdapter(AgentAdapter):
+        def supports_fault(self, fault: FaultPlan) -> bool:
+            return False
+
+        async def prepare(self, case: Case) -> PreparedRun:
+            raise AssertionError("prepare should not be called")
+
+        async def submit(self, prepared: PreparedRun) -> RunHandle:
+            raise AssertionError("submit should not be called")
+
+        async def resume(self, handle: RunHandle, action: str) -> RunHandle:
+            raise AssertionError("resume should not be called")
+
+        async def result(self, handle: RunHandle) -> AgentRun:
+            raise AssertionError("result should not be called")
+
+        async def cleanup(self, handle: RunHandle) -> None:
+            raise AssertionError("cleanup should not be called")
+
+    case = Case.model_validate(
+        {
+            "id": "fault-case-1",
+            "fault": {"component": "llm", "mode": "timeout"},
+            "expected": {"final_status": "escalated"},
+        }
+    )
+    adapter = UnsupportedFaultAdapter()
+
+    result = await run_case(case, adapter, ExecutionLimits(timeout_seconds=1))
+
+    assert result.skipped is True
+    assert result.run_id == "skipped-fault-case-1"
+    assert result.case_id == "fault-case-1"
+    assert result.adapter == "UnsupportedFaultAdapter"
+    assert result.final_state.status == "skipped"
+    assert result.skip_reason is not None
+    assert "llm:timeout" in result.skip_reason
+    assert len(result.trace.events) == 1
+    assert result.trace.events[0].kind == TraceEventKind.LIFECYCLE
+    assert result.trace.events[0].payload == {
+        "action": "skip",
+        "reason": result.skip_reason,
+    }
+    assert result.duration_ms is not None
+
+
+@pytest.mark.anyio
+async def test_evaluation_leaves_skipped_runs_unscored(tmp_path: Path) -> None:
+    from deskbench.evaluation import evaluate_cases
+
+    class NoFaultAdapter(ScriptedAdapter):
+        def supports_fault(self, fault: FaultPlan) -> bool:
+            return fault.component == FaultComponent.NONE
+
+    dataset_path = Path(tmp_path) / "cases.yaml"
+    dataset_path.write_text(
+        "- id: case-normal\n"
+        "  expected:\n"
+        "    final_status: closed\n"
+        "- id: case-fault\n"
+        "  fault:\n"
+        "    component: llm\n"
+        "    mode: timeout\n"
+        "  expected:\n"
+        "    final_status: escalated\n"
+    )
+
+    runs = await evaluate_cases(dataset_path, NoFaultAdapter())
+
+    assert len(runs) == 2
+    normal_run = runs[0]
+    skipped_run = runs[1]
+
+    assert normal_run.skipped is False
+    assert len(normal_run.scores) == 4
+
+    assert skipped_run.skipped is True
+    assert skipped_run.scores == []
+

@@ -11,11 +11,15 @@ from deskbench.contracts import (
     CanonicalState,
     CanonicalTrace,
     Case,
+    FaultPlan,
 )
 from deskbench.evaluation import run_dataset
 
 
 class DeterministicAdapter(AgentAdapter):
+    def supports_fault(self, fault: FaultPlan) -> bool:
+        return True
+
     async def prepare(self, case: Case) -> PreparedRun:
         return PreparedRun(case=case)
 

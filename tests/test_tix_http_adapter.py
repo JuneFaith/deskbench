@@ -7,7 +7,7 @@ import pytest
 
 from deskbench.adapters.base import RunHandle
 from deskbench.adapters.tix_http import HttpAdapterError, TixHttpAdapter
-from deskbench.contracts import Case
+from deskbench.contracts import Case, FaultComponent, FaultMode, FaultPlan
 
 
 @pytest.mark.anyio
@@ -544,3 +544,98 @@ def test_rejects_non_positive_poll_interval() -> None:
         TixHttpAdapter("https://tix.test/api", token="token-1", poll_interval=0)
     with pytest.raises(ValueError, match="poll_interval"):
         TixHttpAdapter("https://tix.test/api", token="token-1", poll_interval=-1.0)
+
+
+def test_tix_http_adapter_supports_fault() -> None:
+    adapter = TixHttpAdapter("http://localhost:8000/api", token="token-1")
+    assert adapter.supports_fault(FaultPlan())
+    assert adapter.supports_fault(
+        FaultPlan(component=FaultComponent.NONE, mode=FaultMode.NONE)
+    )
+    assert adapter.supports_fault(
+        FaultPlan(component=FaultComponent.THREAD, mode=FaultMode.DUPLICATE_RESUME)
+    )
+    assert adapter.supports_fault(
+        FaultPlan(mode=FaultMode.DUPLICATE_RESUME)
+    )
+    assert not adapter.supports_fault(
+        FaultPlan(component=FaultComponent.LLM, mode=FaultMode.TIMEOUT)
+    )
+    assert not adapter.supports_fault(
+        FaultPlan(component=FaultComponent.EMBEDDING, mode=FaultMode.UNAVAILABLE)
+    )
+
+
+@pytest.mark.anyio
+async def test_resume_retries_on_http_409_until_success() -> None:
+    attempts = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return httpx.Response(
+                409,
+                json={"detail": "该工单已有管线运行中", "code": "PIPELINE_RUNNING"},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "result": {
+                    "ticket_id": "ticket-1",
+                    "thread_id": None,
+                    "completed": True,
+                    "last_node": "collect_feedback",
+                    "error": None,
+                },
+                "interrupted": None,
+                "thread_id": None,
+                "run_duration_s": 0.1,
+                "degraded_count": 0,
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = TixHttpAdapter(
+        "https://tix.test/api",
+        token="token-1",
+        client=client,
+        poll_interval=0.01,
+    )
+    handle = RunHandle(
+        run_id="ticket-1", case_id="case-1", interrupted=True, interrupt_id="thread-1"
+    )
+
+    resumed = await adapter.resume(handle, "approve")
+    await client.aclose()
+
+    assert attempts == 2
+    assert not resumed.interrupted
+
+
+@pytest.mark.anyio
+async def test_resume_raises_409_when_deadline_exceeded() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            409,
+            json={"detail": "该工单已有管线运行中", "code": "PIPELINE_RUNNING"},
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = TixHttpAdapter(
+        "https://tix.test/api",
+        token="token-1",
+        client=client,
+        timeout=0.05,
+        poll_interval=0.01,
+    )
+    handle = RunHandle(
+        run_id="ticket-1", case_id="case-1", interrupted=True, interrupt_id="thread-1"
+    )
+
+    with pytest.raises(HttpAdapterError) as exc_info:
+        await adapter.resume(handle, "approve")
+    await client.aclose()
+
+    assert exc_info.value.status_code == 409
+

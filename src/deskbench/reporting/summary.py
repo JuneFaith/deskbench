@@ -18,7 +18,8 @@ def read_summary(path: str | Path) -> Summary:
     if all(name in payload for name in required_fields):
         return Summary.model_validate(payload)
     runs = payload.get("runs", [])
-    count = max(len(runs), 1)
+    executed_runs = [run for run in runs if not run.get("skipped", False)]
+    count = max(len(executed_runs), 1)
     failure_counts = {
         "approval_bypass_rate": 0,
         "cross_ticket_resume_rate": 0,
@@ -31,7 +32,7 @@ def read_summary(path: str | Path) -> Summary:
     tool_calls: list[float] = []
     retrieval_recalls: list[float] = []
     retrieval_mrrs: list[float] = []
-    for run in runs:
+    for run in executed_runs:
         scores = run.get("scores", [])
         failures = {
             failure for score in scores for failure in score.get("failures", [])

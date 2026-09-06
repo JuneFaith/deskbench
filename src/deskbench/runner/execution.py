@@ -4,6 +4,7 @@ from time import monotonic
 
 import anyio
 
+from deskbench.adapters import adapter_supports_fault
 from deskbench.adapters.base import AgentAdapter, RunHandle
 from deskbench.contracts import (
     AgentRun,
@@ -33,6 +34,8 @@ async def run_case(
     handle: RunHandle | None = None
     steps = 0
     adapter_name = type(adapter).__name__
+    if not adapter_supports_fault(adapter, case.fault):
+        return _skipped_result(case, adapter_name, started)
     try:
         with anyio.fail_after(limits.timeout_seconds):
             prepared = await adapter.prepare(case)
@@ -98,6 +101,37 @@ async def _cleanup_safely(
                 await adapter.cleanup(handle)
     except (Exception, anyio.get_cancelled_exc_class()):
         return None
+
+
+def _skipped_result(
+    case: Case,
+    adapter: str,
+    started: float,
+    reason: str | None = None,
+) -> AgentRun:
+    """Build a skipped run result when an adapter does not support the case fault."""
+    if reason is None:
+        reason = (
+            f"adapter '{adapter}' does not support fault "
+            f"'{case.fault.component.value}:{case.fault.mode.value}'"
+        )
+    return AgentRun(
+        run_id=f"skipped-{case.id}",
+        case_id=case.id,
+        adapter=adapter,
+        final_state=CanonicalState(status="skipped"),
+        trace=CanonicalTrace(
+            events=[
+                TraceEvent(
+                    kind=TraceEventKind.LIFECYCLE,
+                    payload={"action": "skip", "reason": reason},
+                )
+            ]
+        ),
+        skipped=True,
+        skip_reason=reason,
+        duration_ms=(monotonic() - started) * 1000,
+    )
 
 
 def _error_result(

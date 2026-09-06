@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from deskbench.adapters.tix_graph import TixGraphAdapter
-from deskbench.contracts import Case
+from deskbench.contracts import Case, FaultComponent, FaultMode, FaultPlan
 
 
 class Graph:
@@ -65,3 +65,11 @@ async def test_graph_adapter_normalizes_interrupt_resume_and_result() -> None:
     assert result.final_state.status == "closed"
     assert result.trace.events[2].to_status == "closed"
     assert graph.calls == ["submit", "resume:approve", "result", "cleanup"]
+
+
+def test_tix_graph_adapter_supports_all_faults() -> None:
+    adapter = TixGraphAdapter(lambda case, run_id: Graph())
+    assert adapter.supports_fault(FaultPlan())
+    assert adapter.supports_fault(
+        FaultPlan(component=FaultComponent.LLM, mode=FaultMode.TIMEOUT)
+    )

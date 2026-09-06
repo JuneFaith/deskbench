@@ -64,3 +64,5 @@ class AgentRun(BaseModel):
     tokens: int | None = Field(default=None, ge=0)
     tool_calls: int = Field(default=0, ge=0)
     retries: int = Field(default=0, ge=0)
+    skipped: bool = False
+    skip_reason: str | None = None

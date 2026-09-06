@@ -67,11 +67,13 @@ def write_report(
         **report.metadata.model_dump(mode="json"),
         "case_count": len(runs),
         "passed_count": sum(
-            not run.error
+            not run.skipped
+            and not run.error
             and bool(run.scores)
             and all(score.passed for score in run.scores)
             for run in runs
         ),
+        "skipped_count": sum(run.skipped for run in runs),
         "runs": [run.model_dump(mode="json") for run in runs],
     }
     paths.summary.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")

@@ -73,10 +73,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "case_count": summary["case_count"],
                 "passed_count": summary["passed_count"],
             }
+            if "skipped_count" in summary:
+                output["skipped_count"] = summary["skipped_count"]
             if args.json_output:
                 print(json.dumps(output, sort_keys=True))
             else:
-                print(f"scored {output['passed_count']}/{output['case_count']} cases")
+                skipped_suffix = (
+                    f" ({output['skipped_count']} skipped)"
+                    if output.get("skipped_count")
+                    else ""
+                )
+                print(
+                    f"scored {output['passed_count']}/{output['case_count']} cases{skipped_suffix}"
+                )
             return 0
         current = read_summary(args.report)
         baseline = read_summary(args.baseline) if args.baseline else None

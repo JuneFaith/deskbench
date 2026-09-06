@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from deskbench.adapters.base import AgentAdapter, PreparedRun, RunHandle
 from deskbench.contracts import AgentRun, CanonicalState, Case
+from deskbench.contracts.cases import FaultComponent, FaultMode, FaultPlan
 from deskbench.trace import normalize_trace
 
 
@@ -95,6 +96,19 @@ class TixHttpAdapter(AgentAdapter):
         self._timeout = timeout
         self._poll_interval = poll_interval
         self._submit_timeout = timeout if timeout < 30.0 else max(timeout, 60.0)
+
+    def supports_fault(self, fault: FaultPlan) -> bool:
+        """TixHttpAdapter operates against a black-box HTTP deployment.
+
+        It supports client-level interaction faults (such as duplicate_resume),
+        but does not support server-side in-process component faults (such as
+        LLM timeout or Embedding service unavailable).
+        """
+        if fault.component == FaultComponent.NONE or fault.mode == FaultMode.NONE:
+            return True
+        if fault.mode == FaultMode.DUPLICATE_RESUME:
+            return True
+        return False
 
     async def login(self) -> str:
         """Authenticate with Tix and retain the returned bearer token."""
@@ -174,16 +188,25 @@ class TixHttpAdapter(AgentAdapter):
                 "thread_id is required for resume",
                 classification="schema",
             )
-        response = await self._request(
-            "POST",
-            f"/tickets/{handle.run_id}/resume",
-            json={
-                "thread_id": thread_id,
-                "action": action,
-                "actor": actor,
-                "comment": comment,
-            },
-        )
+        deadline = monotonic() + self._submit_timeout
+        while True:
+            try:
+                response = await self._request(
+                    "POST",
+                    f"/tickets/{handle.run_id}/resume",
+                    json={
+                        "thread_id": thread_id,
+                        "action": action,
+                        "actor": actor,
+                        "comment": comment,
+                    },
+                )
+                break
+            except HttpAdapterError as error:
+                if error.status_code == 409 and monotonic() < deadline:
+                    await anyio.sleep(min(self._poll_interval, 0.2))
+                    continue
+                raise
         endpoint = f"/tickets/{handle.run_id}/resume"
         _validate_run_response(response, endpoint, expected_ticket_id=handle.run_id)
         result = _graph_result(response, endpoint, expected_ticket_id=handle.run_id)

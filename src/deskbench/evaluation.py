@@ -46,12 +46,15 @@ async def _evaluate_loaded_cases(
         run.dataset_version = case.dataset_version
         run.started_at = started_at
         run.ended_at = datetime.now(UTC)
-        run.scores = [
-            score_outcome(case, run),
-            score_invariants(case, run),
-            score_trajectory(case, run),
-            score_resilience(case, run),
-        ]
+        if run.skipped:
+            run.scores = []
+        else:
+            run.scores = [
+                score_outcome(case, run),
+                score_invariants(case, run),
+                score_trajectory(case, run),
+                score_resilience(case, run),
+            ]
         runs.append(run)
     return runs
 

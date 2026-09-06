@@ -18,8 +18,10 @@ def test_cli_exposes_run_score_and_gate_commands() -> None:
 
 
 def test_cli_run_loads_dataset_and_reports_a_structured_error_without_adapter(
-    tmp_path: Path, capsys: object
+    tmp_path: Path, capsys: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.delenv("DESKBENCH_TIX_URL", raising=False)
+    monkeypatch.delenv("SERVICEDESKBENCH_TIX_URL", raising=False)
     dataset = tmp_path / "cases.yaml"
     dataset.write_text("- id: case-1\n  expected:\n    final_status: closed\n")
 
@@ -51,6 +53,24 @@ def test_cli_score_accepts_report_directory(
 
     assert main(["score", "--report", str(report)]) == 0
     assert "2/2" in capsys.readouterr().out
+
+
+def test_cli_score_displays_skipped_count_in_text_and_json(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    summary = tmp_path / "summary.json"
+    summary.write_text(
+        json.dumps({"case_count": 3, "passed_count": 2, "skipped_count": 1})
+    )
+
+    # Text output includes " (1 skipped)"
+    assert main(["score", "--report", str(summary)]) == 0
+    assert capsys.readouterr().out.strip() == "scored 2/3 cases (1 skipped)"
+
+    # JSON output includes "skipped_count": 1
+    assert main(["score", "--report", str(summary), "--json"]) == 0
+    parsed = json.loads(capsys.readouterr().out)
+    assert parsed == {"case_count": 3, "passed_count": 2, "skipped_count": 1}
 
 
 def test_cli_gate_returns_structured_error_for_missing_report(

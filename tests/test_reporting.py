@@ -150,3 +150,59 @@ def test_summary_accepts_report_directory(tmp_path: Path) -> None:
     summary = read_summary(paths.root)
 
     assert summary.completion_rate == 1.0
+
+
+def test_write_report_and_summary_handle_skipped_runs(tmp_path: Path) -> None:
+    passed_run = AgentRun(
+        run_id="run-1",
+        case_id="case-1",
+        adapter="test",
+        final_state=CanonicalState(status="closed"),
+        trace=CanonicalTrace(),
+        scores=[ScoreResult(scorer="outcome", passed=True, value=1.0)],
+        duration_ms=100.0,
+    )
+    skipped_run = AgentRun(
+        run_id="skipped-case-2",
+        case_id="case-2",
+        adapter="test",
+        final_state=CanonicalState(status="skipped"),
+        trace=CanonicalTrace(),
+        skipped=True,
+        skip_reason="adapter does not support fault",
+        duration_ms=1.0,
+    )
+
+    paths = write_report([passed_run, skipped_run], tmp_path)
+    summary_data = json.loads(paths.summary.read_text())
+
+    assert summary_data["case_count"] == 2
+    assert summary_data["passed_count"] == 1
+    assert summary_data["skipped_count"] == 1
+
+    md_content = paths.markdown.read_text()
+    assert "- Skipped: `adapter does not support fault`" in md_content
+
+    from deskbench.reporting.summary import read_summary
+
+    gate_summary = read_summary(paths.summary)
+    # 1 passed executed run out of 1 executed run -> completion_rate = 1.0
+    assert gate_summary.completion_rate == 1.0
+    assert gate_summary.p95_latency_ms == 100.0
+
+
+def test_render_markdown_uses_fallback_when_skip_reason_missing() -> None:
+    from deskbench.reporting.markdown_report import render_markdown
+
+    run = AgentRun(
+        run_id="skipped-1",
+        case_id="case-skip",
+        adapter="test",
+        final_state=CanonicalState(status="skipped"),
+        trace=CanonicalTrace(),
+        skipped=True,
+        skip_reason=None,
+    )
+    rendered = render_markdown([run], "test-report")
+    assert "- Skipped: `unsupported by adapter`" in rendered
+
