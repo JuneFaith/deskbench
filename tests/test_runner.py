@@ -310,4 +310,3 @@ async def test_evaluation_leaves_skipped_runs_unscored(tmp_path: Path) -> None:
 
     assert skipped_run.skipped is True
     assert skipped_run.scores == []
-

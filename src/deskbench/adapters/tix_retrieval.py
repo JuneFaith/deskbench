@@ -1,6 +1,10 @@
 """Retrieval boundary for tix experiments."""
 
+import asyncio
+import importlib
+import sys
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any, Protocol, cast
 
 import httpx
@@ -119,22 +123,118 @@ class TixHttpRetrievalClient:
         headers: dict[str, str] = {}
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
-        resp = await client.post(
-            f"{self._base_url}{endpoint}",
-            headers=headers,
-            json={
-                "query": query,
-                "top_k": candidate_length,
-                "min_score": min_score,
-            },
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        hits = data.get("hits", [])
-        return cast(Sequence[Mapping[str, Any]], hits)
+        for attempt in range(8):
+            resp = await client.post(
+                f"{self._base_url}{endpoint}",
+                headers=headers,
+                json={
+                    "query": query,
+                    "top_k": candidate_length,
+                    "min_score": min_score,
+                },
+                timeout=self._timeout,
+            )
+            if resp.status_code == 429 and attempt < 7:
+                retry_after = resp.headers.get("Retry-After")
+                wait_time = (
+                    float(retry_after)
+                    if retry_after and float(retry_after) > 0
+                    else 0.6 * (attempt + 1)
+                )
+                await asyncio.sleep(wait_time)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            hits = data.get("hits", [])
+            return cast(Sequence[Mapping[str, Any]], hits)
+        return []
 
     async def close(self) -> None:
         if self._owned_client is not None:
             await self._owned_client.aclose()
             self._owned_client = None
+
+
+class TixLocalHybridRetrievalClient:
+    """Connect Tix's local hybrid search to the deskbench retrieval adapter protocol."""
+
+    def __init__(self, config_path: str | Path, source: str = "ticket") -> None:
+        self._config_path = Path(config_path)
+        self._source = source
+        self._uow: Any = None
+        self._engine: Any = None
+        self._embedding_mgr: Any = None
+
+    async def _ensure_initialized(self) -> None:
+        if self._uow is not None:
+            return
+        tix_backend = self._config_path.resolve().parents[2] / "backend"
+        if str(tix_backend) not in sys.path:
+            sys.path.insert(0, str(tix_backend))
+        for sp in (tix_backend / ".venv" / "lib").glob("python*/site-packages"):
+            if str(sp) not in sys.path:
+                sys.path.insert(0, str(sp))
+
+        create_async_engine = importlib.import_module(
+            "sqlalchemy.ext.asyncio"
+        ).create_async_engine
+        runtime_config_mod = importlib.import_module("src.core.runtime_config")
+        load_runtime_config = runtime_config_mod.load_runtime_config
+        set_current_runtime = runtime_config_mod.set_current_runtime
+        embeddings_mod = importlib.import_module("src.llm.embeddings")
+        get_embedding = embeddings_mod.get_embedding
+        embedding_mgr_mod = importlib.import_module("src.services.embedding_manager")
+        EmbeddingManager = embedding_mgr_mod.EmbeddingManager
+        storage_impl_mod = importlib.import_module("src.storage.impl")
+        PostgresUoW = storage_impl_mod.PostgresUoW
+
+        runtime = load_runtime_config(self._config_path)
+        set_current_runtime(runtime)
+        self._embedding_mgr = EmbeddingManager(get_embedding(runtime))
+        dsn = runtime.secret("postgres_dsn", "dsn").replace("+asyncpg", "")
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://")
+        self._engine = create_async_engine(dsn)
+        self._uow = PostgresUoW(self._engine)
+
+    async def search(
+        self,
+        query: str,
+        *,
+        min_score: float,
+        candidate_length: int,
+        parameters: dict[str, Any],
+    ) -> Sequence[Mapping[str, Any]]:
+        await self._ensure_initialized()
+        hybrid_search_mod = importlib.import_module("src.services.hybrid_search")
+        hybrid_kb_search = hybrid_search_mod.hybrid_kb_search
+        hybrid_ticket_search = hybrid_search_mod.hybrid_ticket_search
+
+        emb = self._embedding_mgr.embed_query(query)
+        if self._source == "kb":
+            hits = await hybrid_kb_search(
+                self._uow,
+                query,
+                emb,
+                top_k=candidate_length,
+                min_score=min_score,
+            )
+        else:
+            hits = await hybrid_ticket_search(
+                self._uow,
+                query,
+                emb,
+                top_k=candidate_length,
+                min_score=min_score,
+            )
+        return [
+            {"id": doc_id, "score": float(score), "source": self._source}
+            for doc_id, score in hits
+        ]
+
+    async def close(self) -> None:
+        if self._uow is not None:
+            await self._uow.close()
+            self._uow = None
+        if self._engine is not None:
+            await self._engine.dispose()
+            self._engine = None

@@ -205,4 +205,3 @@ def test_render_markdown_uses_fallback_when_skip_reason_missing() -> None:
     )
     rendered = render_markdown([run], "test-report")
     assert "- Skipped: `unsupported by adapter`" in rendered
-

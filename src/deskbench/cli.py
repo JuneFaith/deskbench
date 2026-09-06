@@ -43,6 +43,27 @@ def build_parser() -> argparse.ArgumentParser:
     gate.add_argument("--report", required=True)
     gate.add_argument("--baseline")
     gate.add_argument("--json", action="store_true", dest="json_output")
+
+    retrieval = commands.add_parser("retrieval", help="evaluate retrieval quality")
+    retrieval.add_argument(
+        "--queries",
+        default="datasets/servicedesk_v1/rag_queries.yaml",
+        help="path to queries dataset",
+    )
+    retrieval.add_argument(
+        "--source",
+        choices=("kb", "ticket", "both"),
+        default="both",
+        help="retrieval source to evaluate",
+    )
+    retrieval.add_argument(
+        "--output",
+        default="reports",
+        help="output directory for reports",
+    )
+    retrieval.add_argument(
+        "--json", action="store_true", dest="json_output", help="output in JSON format"
+    )
     return parser
 
 
@@ -87,6 +108,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"scored {output['passed_count']}/{output['case_count']} cases{skipped_suffix}"
                 )
             return 0
+        if args.command == "retrieval":
+            return _retrieval(args)
         current = read_summary(args.report)
         baseline = read_summary(args.baseline) if args.baseline else None
         result = evaluate_gate(current, baseline, GatePolicy())
@@ -143,6 +166,46 @@ async def _run_async(args: argparse.Namespace) -> int:
         print(json.dumps(output, sort_keys=True))
     else:
         print(f"evaluated {len(cases)} cases; report: {paths.root}")
+    return 0
+
+
+def _retrieval(args: argparse.Namespace) -> int:
+    return asyncio.run(_retrieval_async(args))
+
+
+async def _retrieval_async(args: argparse.Namespace) -> int:
+    from deskbench.retrieval import run_retrieval_evaluation
+
+    paths = await run_retrieval_evaluation(
+        queries_path=args.queries,
+        output_path=args.output,
+        source=args.source,
+    )
+    summary_data = json.loads(paths.summary.read_text(encoding="utf-8"))
+    if args.json_output:
+        output: dict[str, Any] = {
+            "case_count": summary_data["case_count"],
+            "passed_count": summary_data["passed_count"],
+            "recall_at_5": summary_data["recall_at_5"],
+            "mrr": summary_data["mrr"],
+            "p95_latency_ms": summary_data["p95_latency_ms"],
+            "completion_rate": summary_data["completion_rate"],
+            "report": str(paths.root),
+        }
+        if summary_data.get("kb_metrics"):
+            output["kb_metrics"] = summary_data["kb_metrics"]
+        if summary_data.get("ticket_metrics"):
+            output["ticket_metrics"] = summary_data["ticket_metrics"]
+        print(json.dumps(output, sort_keys=True))
+    else:
+        print(f"Retrieval Evaluation Summary (source: {args.source}):")
+        print(
+            f"  Queries: {summary_data['passed_count']}/{summary_data['case_count']} passed"
+        )
+        print(f"  Recall@5: {summary_data['recall_at_5']:.4f}")
+        print(f"  MRR: {summary_data['mrr']:.4f}")
+        print(f"  P95 Latency: {summary_data['p95_latency_ms']:.2f} ms")
+        print(f"  Report: {paths.root}")
     return 0
 
 

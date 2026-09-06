@@ -16,7 +16,12 @@ def read_summary(path: str | Path) -> Summary:
     payload: Any = json.loads(summary_path.read_text())
     required_fields = set(Summary.model_fields) - {"tool_call_growth_explanation"}
     if all(name in payload for name in required_fields):
-        return Summary.model_validate(payload)
+        filtered = {name: payload[name] for name in required_fields}
+        if "tool_call_growth_explanation" in payload:
+            filtered["tool_call_growth_explanation"] = payload[
+                "tool_call_growth_explanation"
+            ]
+        return Summary.model_validate(filtered)
     runs = payload.get("runs", [])
     executed_runs = [run for run in runs if not run.get("skipped", False)]
     count = max(len(executed_runs), 1)

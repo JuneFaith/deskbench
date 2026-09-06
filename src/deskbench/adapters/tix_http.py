@@ -310,6 +310,10 @@ class TixHttpAdapter(AgentAdapter):
         del handle
         await self._close_owned_client()
 
+    async def close(self) -> None:
+        """Close the underlying HTTP client if it was created internally."""
+        await self._close_owned_client()
+
     async def _ticket_detail(self, ticket_id: str) -> dict[str, Any]:
         return await self._request("GET", f"/tickets/{ticket_id}")
 

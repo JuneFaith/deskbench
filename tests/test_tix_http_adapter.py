@@ -555,9 +555,7 @@ def test_tix_http_adapter_supports_fault() -> None:
     assert adapter.supports_fault(
         FaultPlan(component=FaultComponent.THREAD, mode=FaultMode.DUPLICATE_RESUME)
     )
-    assert adapter.supports_fault(
-        FaultPlan(mode=FaultMode.DUPLICATE_RESUME)
-    )
+    assert adapter.supports_fault(FaultPlan(mode=FaultMode.DUPLICATE_RESUME))
     assert not adapter.supports_fault(
         FaultPlan(component=FaultComponent.LLM, mode=FaultMode.TIMEOUT)
     )
@@ -639,3 +637,17 @@ async def test_resume_raises_409_when_deadline_exceeded() -> None:
 
     assert exc_info.value.status_code == 409
 
+
+@pytest.mark.anyio
+async def test_close_owned_client() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"access_token": "tok123"})
+
+    adapter = TixHttpAdapter("https://tix.test/api", username="u", password="p")
+    # inject mock client to avoid network call
+    adapter._owned_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    token = await adapter.login()
+    assert token == "tok123"
+    assert adapter._owned_client is not None
+    await adapter.close()
+    assert adapter._owned_client is None

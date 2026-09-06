@@ -47,6 +47,7 @@ include = ["deskbench*"]
 minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-ra"
+pythonpath = [".", "src"]
 markers = [
   "integration: requires a running tix deployment",
 ]

@@ -255,3 +255,153 @@ def test_cli_graph_factory_env_var_fallback(
     assert exit_code == 2
     output = json.loads(capsys.readouterr().out)
     assert "module:attribute syntax" in output["error"]["detail"]
+
+
+def test_cli_retrieval_parser_defaults() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["retrieval"])
+
+    assert args.command == "retrieval"
+    assert args.queries == "datasets/servicedesk_v1/rag_queries.yaml"
+    assert args.source == "both"
+    assert args.output == "reports"
+    assert args.json_output is False
+
+
+def test_cli_retrieval_missing_url_returns_structured_error(
+    tmp_path: Path, capsys: CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DESKBENCH_TIX_URL", raising=False)
+    monkeypatch.delenv("SERVICEDESKBENCH_TIX_URL", raising=False)
+    monkeypatch.delenv("DESKBENCH_TIX_CONFIG", raising=False)
+    monkeypatch.delenv("SERVICEDESKBENCH_TIX_CONFIG", raising=False)
+
+    queries = tmp_path / "queries.yaml"
+    queries.write_text("queries: []\n", encoding="utf-8")
+
+    exit_code = main(["retrieval", "--queries", str(queries), "--json"])
+
+    assert exit_code == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["error"]["code"] == "missing_tix_url"
+
+
+def test_cli_retrieval_executes_and_outputs_text(
+    tmp_path: Path, capsys: CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_dir = tmp_path / "reports" / "2026-09-06T000000Z"
+    report_dir.mkdir(parents=True)
+    summary_file = report_dir / "summary.json"
+    summary_file.write_text(
+        json.dumps(
+            {
+                "case_count": 10,
+                "passed_count": 9,
+                "recall_at_5": 0.9,
+                "mrr": 0.8,
+                "p95_latency_ms": 150.0,
+                "completion_rate": 1.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    from deskbench.reporting.json_report import ReportPaths
+
+    async def mock_run_retrieval(*args: object, **kwargs: object) -> ReportPaths:
+        return ReportPaths(report_dir)
+
+    monkeypatch.setattr(
+        "deskbench.retrieval.run_retrieval_evaluation", mock_run_retrieval
+    )
+
+    exit_code = main(["retrieval", "--queries", "dummy.yaml"])
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out
+    assert "Retrieval Evaluation Summary" in stdout
+    assert "9/10 passed" in stdout
+    assert "0.9000" in stdout
+
+
+def test_cli_retrieval_executes_and_outputs_json(
+    tmp_path: Path, capsys: CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_dir = tmp_path / "reports" / "2026-09-06T000000Z"
+    report_dir.mkdir(parents=True)
+    summary_file = report_dir / "summary.json"
+    summary_file.write_text(
+        json.dumps(
+            {
+                "case_count": 5,
+                "passed_count": 5,
+                "recall_at_5": 1.0,
+                "mrr": 0.85,
+                "p95_latency_ms": 80.0,
+                "completion_rate": 1.0,
+                "kb_metrics": {"recall_at_5": 1.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    from deskbench.reporting.json_report import ReportPaths
+
+    async def mock_run_retrieval(*args: object, **kwargs: object) -> ReportPaths:
+        return ReportPaths(report_dir)
+
+    monkeypatch.setattr(
+        "deskbench.retrieval.run_retrieval_evaluation", mock_run_retrieval
+    )
+
+    exit_code = main(["retrieval", "--queries", "dummy.yaml", "--json"])
+
+    assert exit_code == 0
+    parsed = json.loads(capsys.readouterr().out)
+    assert parsed["case_count"] == 5
+    assert parsed["passed_count"] == 5
+    assert parsed["recall_at_5"] == 1.0
+    assert parsed["kb_metrics"] == {"recall_at_5": 1.0}
+
+
+def test_evals_retrieval_eval_entry_point(
+    tmp_path: Path, capsys: CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sys
+
+    repo_root = str(Path(__file__).parents[1])
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+    from evals.retrieval_eval import main as eval_main
+
+    report_dir = tmp_path / "reports" / "2026-09-06T000000Z"
+    report_dir.mkdir(parents=True)
+    summary_file = report_dir / "summary.json"
+    summary_file.write_text(
+        json.dumps(
+            {
+                "case_count": 2,
+                "passed_count": 2,
+                "recall_at_5": 1.0,
+                "mrr": 1.0,
+                "p95_latency_ms": 50.0,
+                "completion_rate": 1.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    from deskbench.reporting.json_report import ReportPaths
+
+    async def mock_run_retrieval(*args: object, **kwargs: object) -> ReportPaths:
+        return ReportPaths(report_dir)
+
+    monkeypatch.setattr(
+        "deskbench.retrieval.run_retrieval_evaluation", mock_run_retrieval
+    )
+
+    exit_code = eval_main(["--queries", "dummy.yaml", "--json"])
+    assert exit_code == 0
+    parsed = json.loads(capsys.readouterr().out)
+    assert parsed["case_count"] == 2

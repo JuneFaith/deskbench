@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class Summary(BaseModel):
     """Aggregate values used by the regression gate."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     approval_bypass_rate: float = Field(ge=0, le=1)
     cross_ticket_resume_rate: float = Field(ge=0, le=1)

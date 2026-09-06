@@ -41,3 +41,16 @@
   - 静默丢弃不支持的用例且不在报告中保留跳过审计踪迹（丧失评测审计证据可追溯性）。
 - **Consequence:** 评测报告明确区分“成功通过”、“真实失败”与“适配器能力受限跳过”；HTTP 适配器评测聚焦于黑盒协议与流转不变量，Graph 适配器聚焦于在体组件依赖降级；门禁指标计算严密且无假阴性干扰。
 
+## D-005: RAG 混合检索端到端评测体系与多源基准
+
+**Status:** adopted
+
+- **Decision:** 确立 Deskbench 的 RAG 混合检索端到端评测体系与多源（Knowledge Base 知识库文章 `kb` 与 Historical Tickets 历史工单 `ticket`）切分基准架构。评测层通过统一的 `RetrievalClient` 抽象对接 HTTP 真实公开端点（`/api/kb/search`、`/api/tickets/search`）与本地检索沙箱；采用确定性相关性模型与多维排名指标（Recall@1/3/5、Precision@5、MRR、NDCG@5、主题分面 Topic breakdown 以及反向干扰样本 Negative confounder 泄漏率）；并将检索评测提升为 CLI 一等公民命令（`deskbench retrieval` 与独立入口 `evals.retrieval_eval`），持久化结构化报告（`retrieval_summary.json` 与 `retrieval_markdown.md`）用于基线对比与防劣化门禁。
+- **Reason:** 混合检索是工单智能决策与分类排障的关键前置输入，检索召回与抗干扰质量直接决定下游 Agent 的流转质量；KB 文章与历史工单在文档形态、时效性与语义粒度上差异显著，混杂打分会掩盖单源检索缺陷，必须支持多源独立度量；遵循 D-001 与 D-003 原则，通过真实公开检索接口与黑盒凭据评测，不入侵被测系统内部实现。
+- **Rejected:** 
+  - 将检索评测降级为端到端流转测试的隐式副作用（无法准确定位检索质量与流转质量的故障归因）。
+  - 依赖黑盒 LLM Judge 进行检索主观打分（缺乏确定性、审计可复现性且开销高昂）。
+  - 将知识库文章与历史工单粗粒度混合为单一池打分（掩盖不同数据源的召回短板与长尾分布偏差）。
+- **Consequence:** 检索评测与状态机评测形成互补闭环；对检索模型漂移、分词参数变动、混合检索权重配置具备可量化、可比较的自动化门禁防御能力。
+
+

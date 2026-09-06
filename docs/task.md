@@ -733,4 +733,40 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
   - `tests/test_reporting.py`：测试报告与 Summary 包含 `skipped_count` 及完成率正确计算通过。
   - `tests/test_cli.py`：测试 CLI `score` 输出包含跳过数量通过。
 
+## T-010: RAG 混合检索（KB 与工单）端到端评测基线建立与 CLI 集成
+
+**Kind:** feature/evaluation
+**Status:** verified
+**Goal:** 依据 D-005 决策，建立针对 Tix 真实公开端点（`/api/kb/search` 与 `/api/tickets/search`）的端到端 RAG 混合检索评测体系，完成评测执行管线、多维确定性指标打分、报告持久化、CLI 一等公民命令及独立 Entry Point 集成。
+
+### Architecture
+
+1. **检索适配与协议对接**：在 `TixRetrievalAdapter` 中完善对 `TixHttpRetrievalClient` 的支撑，直接对接 Tix 的 `/api/kb/search` 与 `/api/tickets/search` HTTP 端点；支持通过 Token 或账密自动鉴权，支持按 `source` 参数（`kb`、`ticket`、`all`）分源独立评测或统一评测。
+2. **评测管线与加载（Pipeline & Runner）**：在 `src/deskbench/retrieval.py` 中实现统一执行入口 `run_retrieval_evaluation`，支持加载 `rag_queries.yaml` 标注集，支持按主题与源类型批量并发请求，记录响应耗时、匹配文档 ID 与相关性标签。
+3. **确定性多维评分体系（Deterministic Scorers）**：在 `src/deskbench/scorers/retrieval.py` 中提供基于文档排名的客观度量计算（Recall@1/3/5、Precision@5、MRR、NDCG@5），加入反向干扰样本（Negative confounder）泄漏率检测，并提供按主题（Topic）分面的细粒度统计。
+4. **持久化报告与基线固化**：评测结果自动化输出为结构化 `retrieval_summary.json` 与人类可读的 `retrieval_markdown.md` 报告，支持多源切分展示并作为防劣化门禁的数据基线。
+5. **CLI 与 Eval 入口**：
+   - 在 `deskbench` CLI 中增加 `retrieval` 子命令（支持 `--queries`、`--source`、`--output`、`--json`、`--k` 等参数），提供规范的退出码与结构化 JSON 输出。
+   - 暴露 `evals/retrieval_eval.py` 独立评测脚本，方便独立调用与 CI 流水线集成。
+
+### Requirements
+
+- [x] 完善 `TixHttpRetrievalClient` 与 `TixRetrievalAdapter`，支持 HTTP 检索、认证鉴权与 `kb`/`ticket` 源类型动态路由。
+- [x] 实现 `src/deskbench/retrieval.py` 端到端评测执行管线与报告持久化。
+- [x] 在 `src/deskbench/cli.py` 注册 `retrieval` 命令并提供友好交互与 `--json` 格式化支持。
+- [x] 提供 `evals/retrieval_eval.py` 独立入口模块。
+- [x] 补充完善单元与命令行测试（`tests/test_retrieval.py`、`tests/test_cli.py`），覆盖打分算法、反向干扰样本检测与 CLI 行为。
+- [x] 基于真实 Tix 服务的 HTTP 接口完成端到端混合检索验收（`tests/test_tix_retrieval_integration.py`）。
+
+### Verification
+
+- `uv run ruff check src tests evals` → `All checks passed!`
+- `uv run mypy src tests evals` → `Success: no issues found in 55 source files`
+- `uv run pytest tests/test_retrieval.py tests/test_cli.py` → `22 passed in 0.27s`
+- `uv run pytest -m "not integration"` → `103 passed, 3 deselected in 0.81s`
+- 覆盖测试模块：
+  - `tests/test_retrieval.py`：测试 rank positions、mixed sources、negative leakage 与 per-topic 聚合。
+  - `tests/test_cli.py`：测试 CLI `retrieval` 默认参数、缺失服务配置报错、文本输出与 `--json` 输出。
+
+
 
