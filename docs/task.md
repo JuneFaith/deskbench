@@ -809,3 +809,35 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
 - `uv run ruff check src tests evals` → `All checks passed!`
 - `uv run mypy src tests evals` → `Success: no issues found in 55 source files`
 - `uv run pytest -q` → `104 passed, 3 skipped in 0.86s` (集成模式下 107 passed, 0 failed)
+
+## T-012: 评测环境探查诊断、防饱和门禁与测试生命周期清理
+
+**Kind:** feature/environment
+**Status:** verified
+**Goal:** 依据 D-007 决策，构建评测环境探查（`probe_environment`）、坐席负载防饱和预警与测试生命周期清理机制（`clean_environment`），提供 `deskbench env` CLI 命令与 `deskbench run --pre-clean` 选项，彻底解决共享数据库测试数据污染与坐席饱和问题。
+
+### Architecture
+
+1. **环境探查与防饱和诊断**：在 `deskbench/environment.py` 中实现 `probe_environment`，发起 `/health` 探活与 `/api/handlers` 坐席档案拉取，将 `current_load >= max_load` 的坐席标记为 `saturated_handlers`，返回结构化 `EnvironmentStatus`。
+2. **多层测试生命周期清理**：在 `clean_environment` 中实现双模清理策略：优先检测本机的 Podman/Docker 容器运行时，在 `tix_pg_dev` 容器内直接执行级联清理 SQL（仅清理 `channel='api'` 的测试工单及关联事件、反馈、向量与 checkpoint，保护 `channel='web'` 历史评测语料），并将坐席负载全部复位为 0；若无容器权限，则回退调用 Tix 的运维调和命令。
+3. **CLI 命令与运行前钩子**：
+   - 暴露 `deskbench env status` 与 `deskbench env clean`（支持 `--json` 格式化输出）。
+   - 在 `deskbench run` 中增加 `--pre-clean` 选项，评测执行前自动净化环境并校验坐席零饱和，避免假阴性。
+
+### Requirements
+
+- [x] 实现 `src/deskbench/environment.py`，支持 `EnvironmentStatus`、`probe_environment` 与 `clean_environment`。
+- [x] 在 `src/deskbench/cli.py` 中新增 `env` 子命令（`status`, `clean`）及 `--pre-clean` 参数。
+- [x] 补充 `tests/test_environment.py` 覆盖探查、饱和检测、容器清理与 CLI 分发等 15 个测试。
+- [x] 在真实在线 Tix 环境下执行 `deskbench env status`、`deskbench env clean` 与 `deskbench run --pre-clean` 验证通过。
+- [x] 代码规范、类型检查与全量单元测试（`ruff`、`mypy`、`pytest`）通过。
+
+### Verification
+
+- `source ../tix/.local/tix-dev/deskbench.env && uv run deskbench env status` → `Environment (http://127.0.0.1:8000): healthy, Handlers (4), saturated_handlers: []`
+- `source ../tix/.local/tix-dev/deskbench.env && uv run deskbench env clean` → `Environment cleaned successfully using container_psql.`
+- `source ../tix/.local/tix-dev/deskbench.env && uv run deskbench run --dataset datasets/servicedesk_v1/manifest.yaml --adapter http --pre-clean --output reports` → `evaluated 12 cases; report: reports/2026-09-06T092404.878415Z` (10 passed, 2 skipped per D-004)
+- `uv run ruff check src tests evals` → `All checks passed!`
+- `uv run mypy src tests evals` → `Success: no issues found in 57 source files`
+- `uv run pytest` → `119 passed, 3 skipped in 0.94s`
+

@@ -5,6 +5,7 @@ import asyncio
 import importlib
 import json
 import os
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, NoReturn, cast
@@ -34,6 +35,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--adapter", choices=("graph", "http"), default="http")
     run.add_argument("--output", default="reports")
     run.add_argument("--json", action="store_true", dest="json_output")
+    run.add_argument(
+        "--pre-clean",
+        action="store_true",
+        help="clean environment and reset handler loads before running",
+    )
 
     score = commands.add_parser("score", help="score an existing report")
     score.add_argument("--report", required=True)
@@ -64,6 +70,23 @@ def build_parser() -> argparse.ArgumentParser:
     retrieval.add_argument(
         "--json", action="store_true", dest="json_output", help="output in JSON format"
     )
+
+    env = commands.add_parser(
+        "env", help="environment diagnostics and cleanup"
+    )
+    env_sub = env.add_subparsers(dest="env_command", required=True)
+
+    env_status = env_sub.add_parser("status", help="probe environment health and handler load")
+    env_status.add_argument("--url", help="Tix base URL")
+    env_status.add_argument("--json", action="store_true", dest="json_output")
+
+    env_clean = env_sub.add_parser("clean", help="clean environment data and reset handler load")
+    env_clean.add_argument("--url", help="Tix base URL")
+    env_clean.add_argument(
+        "--container", default="tix_pg_dev", help="Postgres container name"
+    )
+    env_clean.add_argument("--tix-path", help="Path to Tix repository")
+    env_clean.add_argument("--json", action="store_true", dest="json_output")
     return parser
 
 
@@ -110,6 +133,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "retrieval":
             return _retrieval(args)
+        if args.command == "env":
+            return _env(args)
         current = read_summary(args.report)
         baseline = read_summary(args.baseline) if args.baseline else None
         result = evaluate_gate(current, baseline, GatePolicy())
@@ -133,6 +158,12 @@ async def _run_async(args: argparse.Namespace) -> int:
     cases = await load_cases_async(args.dataset)
     adapter: AgentAdapter
     if args.adapter == "graph":
+        if getattr(args, "pre_clean", False):
+            from deskbench.environment import clean_environment
+
+            clean_res = await clean_environment()
+            if not clean_res.get("cleaned"):
+                raise RuntimeError(f"pre-clean failed: {clean_res.get('error')}")
         factory_path = os.environ.get("DESKBENCH_GRAPH_FACTORY") or os.environ.get(
             "SERVICEDESKBENCH_GRAPH_FACTORY"
         )
@@ -150,14 +181,56 @@ async def _run_async(args: argparse.Namespace) -> int:
         )
         if not base_url:
             raise ValueError("tix URL is required for the HTTP adapter")
+        token = (
+            os.environ.get("DESKBENCH_TIX_TOKEN")
+            or os.environ.get("SERVICEDESKBENCH_TIX_TOKEN")
+        )
+        username = (
+            os.environ.get("DESKBENCH_TIX_USERNAME")
+            or os.environ.get("SERVICEDESKBENCH_TIX_USERNAME")
+        )
+        password = (
+            os.environ.get("DESKBENCH_TIX_PASSWORD")
+            or os.environ.get("SERVICEDESKBENCH_TIX_PASSWORD")
+        )
+
+        from deskbench.environment import clean_environment, probe_environment
+
+        if getattr(args, "pre_clean", False):
+            clean_res = await clean_environment(
+                base_url=base_url,
+                token=token,
+                username=username,
+                password=password,
+            )
+            if not clean_res.get("cleaned"):
+                raise RuntimeError(f"pre-clean failed: {clean_res.get('error')}")
+
+        status = await probe_environment(
+            base_url=base_url,
+            token=token,
+            username=username,
+            password=password,
+        )
+        if status.saturated_handlers:
+            names = ", ".join(
+                f"{h.name} ({h.current_load}/{h.max_load})"
+                for h in status.saturated_handlers
+            )
+            warning_msg = (
+                f"warning: {len(status.saturated_handlers)} handler(s) "
+                f"are saturated: {names}"
+            )
+            if getattr(args, "json_output", False):
+                print(warning_msg, file=sys.stderr)
+            else:
+                print(warning_msg)
+
         http_adapter = TixHttpAdapter(
             base_url,
-            os.environ.get("DESKBENCH_TIX_TOKEN")
-            or os.environ.get("SERVICEDESKBENCH_TIX_TOKEN"),
-            username=os.environ.get("DESKBENCH_TIX_USERNAME")
-            or os.environ.get("SERVICEDESKBENCH_TIX_USERNAME"),
-            password=os.environ.get("DESKBENCH_TIX_PASSWORD")
-            or os.environ.get("SERVICEDESKBENCH_TIX_PASSWORD"),
+            token,
+            username=username,
+            password=password,
         )
         adapter = http_adapter
     paths = await run_dataset(args.dataset, adapter, args.output)
@@ -167,6 +240,112 @@ async def _run_async(args: argparse.Namespace) -> int:
     else:
         print(f"evaluated {len(cases)} cases; report: {paths.root}")
     return 0
+
+
+def _env(args: argparse.Namespace) -> int:
+    if args.env_command == "status":
+        return asyncio.run(_env_status_async(args))
+    if args.env_command == "clean":
+        return asyncio.run(_env_clean_async(args))
+    raise ValueError(f"invalid arguments: unknown env command {args.env_command}")
+
+
+async def _env_status_async(args: argparse.Namespace) -> int:
+    base_url = (
+        getattr(args, "url", None)
+        or os.environ.get("DESKBENCH_TIX_URL")
+        or os.environ.get("SERVICEDESKBENCH_TIX_URL")
+    )
+    if not base_url:
+        raise ValueError("tix URL is required for environment status")
+    token = (
+        os.environ.get("DESKBENCH_TIX_TOKEN")
+        or os.environ.get("SERVICEDESKBENCH_TIX_TOKEN")
+    )
+    username = (
+        os.environ.get("DESKBENCH_TIX_USERNAME")
+        or os.environ.get("SERVICEDESKBENCH_TIX_USERNAME")
+    )
+    password = (
+        os.environ.get("DESKBENCH_TIX_PASSWORD")
+        or os.environ.get("SERVICEDESKBENCH_TIX_PASSWORD")
+    )
+
+    from deskbench.environment import probe_environment
+
+    status = await probe_environment(
+        base_url=base_url,
+        token=token,
+        username=username,
+        password=password,
+    )
+
+    if getattr(args, "json_output", False):
+        print(json.dumps(status.model_dump(), sort_keys=True))
+    else:
+        health_label = "healthy" if status.healthy else f"unhealthy ({status.error})"
+        print(f"Environment ({status.base_url}): {health_label}")
+        if status.handlers:
+            print(f"Handlers ({len(status.handlers)}):")
+            for h in status.handlers:
+                sat = " [SATURATED]" if h.is_saturated else ""
+                print(
+                    f"  - {h.name} ({h.id}): {h.current_load}/{h.max_load} "
+                    f"active={h.active}{sat}"
+                )
+        if status.saturated_handlers:
+            print(f"Warning: {len(status.saturated_handlers)} handler(s) saturated!")
+    return 0 if status.healthy else 1
+
+
+async def _env_clean_async(args: argparse.Namespace) -> int:
+    base_url = (
+        getattr(args, "url", None)
+        or os.environ.get("DESKBENCH_TIX_URL")
+        or os.environ.get("SERVICEDESKBENCH_TIX_URL")
+    )
+    token = (
+        os.environ.get("DESKBENCH_TIX_TOKEN")
+        or os.environ.get("SERVICEDESKBENCH_TIX_TOKEN")
+    )
+    username = (
+        os.environ.get("DESKBENCH_TIX_USERNAME")
+        or os.environ.get("SERVICEDESKBENCH_TIX_USERNAME")
+    )
+    password = (
+        os.environ.get("DESKBENCH_TIX_PASSWORD")
+        or os.environ.get("SERVICEDESKBENCH_TIX_PASSWORD")
+    )
+    container = getattr(args, "container", "tix_pg_dev")
+    tix_repo_path = getattr(args, "tix_path", None)
+
+    from deskbench.environment import clean_environment
+
+    result = await clean_environment(
+        base_url=base_url,
+        token=token,
+        username=username,
+        password=password,
+        container_name=container,
+        tix_repo_path=tix_repo_path,
+    )
+
+    if getattr(args, "json_output", False):
+        print(json.dumps(result, sort_keys=True))
+    else:
+        if result.get("cleaned"):
+            print(f"Environment cleaned successfully using {result.get('method')}.")
+            if "status" in result and isinstance(result["status"], dict):
+                st = result["status"]
+                hl = (
+                    "healthy"
+                    if st.get("healthy")
+                    else f"unhealthy ({st.get('error')})"
+                )
+                print(f"Environment ({st.get('base_url')}): {hl}")
+        else:
+            print(f"Environment clean failed: {result.get('error')}")
+    return 0 if result.get("cleaned") else 1
 
 
 def _retrieval(args: argparse.Namespace) -> int:
