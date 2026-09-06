@@ -11,6 +11,7 @@ from deskbench.contracts import (
     CanonicalState,
     CanonicalTrace,
     Case,
+    DatasetManifest,
     ExperimentMetadata,
 )
 from deskbench.runner.lifecycle import (
@@ -90,8 +91,9 @@ def test_project_manifest_records_core_and_rag_status() -> None:
     manifest = load_manifest(DATASET)
 
     assert manifest.status == {
-        "core_cases": "available",
-        "rag_assets": "available",
+        "core_lifecycle": "available",
+        "fault_injection": "available",
+        "rag_benchmarks": "available",
     }
 
 
@@ -198,3 +200,23 @@ def test_agent_run_defaults_to_not_skipped() -> None:
     )
     assert skipped_run.skipped is True
     assert skipped_run.skip_reason == "adapter does not support fault injection"
+
+
+def test_dataset_manifest_layers_parsing_and_default() -> None:
+    manifest_default = DatasetManifest(dataset_version="v1")
+    assert manifest_default.layers == {}
+
+    manifest_custom = DatasetManifest.model_validate(
+        {
+            "dataset_version": "v1",
+            "layers": {
+                "core": ["happy_path.yaml", "approval.yaml"],
+                "fault": ["degradation.yaml"],
+            },
+        }
+    )
+    assert manifest_custom.layers == {
+        "core": ["happy_path.yaml", "approval.yaml"],
+        "fault": ["degradation.yaml"],
+    }
+

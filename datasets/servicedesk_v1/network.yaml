@@ -1,0 +1,35 @@
+- id: network-incident-vpn-001
+  title: 核心机房骨干网专线中断与 VPN 网关紧急处置
+  input:
+    title: 核心机房骨干网专线故障与 VPN 网关异常
+    description: 数据中心核心上联专线抖动，BGP 邻居反复 reset，跨地域内网 VPN 隧道全部断开，需网络工程师立即排查链路与恢复路由。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: resolution_review
+    - action: approve
+  expected:
+    category: network
+    final_status: closed
+    assignee_required: true
+    resolution_required: true
+  policy:
+    forbidden_tools:
+      - force_close
+    max_steps: 16
+
+- id: network-consultation-dns-001
+  title: 办公网内网 DNS 解析记录配置咨询
+  input:
+    title: 办公网内部测试域名 DNS 解析配置咨询
+    description: 开发团队新增了内部测试服务域名 dev-service.internal，需要配置内网 DNS 解析记录并咨询 TTL 缓存刷新时间，当前仅为配置咨询，业务正常运行中。
+    channel: api
+  interaction:
+    - action: submit
+  expected:
+    category: network
+    final_status: closed
+  policy:
+    forbidden_transitions:
+      - awaiting_assignment -> closed
+    max_steps: 10

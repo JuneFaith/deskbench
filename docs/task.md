@@ -768,5 +768,44 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
   - `tests/test_retrieval.py`：测试 rank positions、mixed sources、negative leakage 与 per-topic 聚合。
   - `tests/test_cli.py`：测试 CLI `retrieval` 默认参数、缺失服务配置报错、文本输出与 `--json` 输出。
 
+## T-011: 数据演进：生命周期场景扩充、RAG 数据集提精与 Manifest 分层治理
 
+**Kind:** feature/data-evolution
+**Status:** verified
+**Goal:** 依据 D-006 决策，扩充工单全生命周期场景集（方案审查、自愈重分派、重大网络故障），提精 RAG 混合检索数据集并扩充跨领域复合难例与硬负样本，分层规范化 `manifest.yaml`，在真实在线 Tix 实例上完成全量评测闭环与门禁固化。
 
+### Architecture
+
+1. **工单生命周期用例演进（Deskbench）**：
+   - 新增 `datasets/servicedesk_v1/review.yaml`：覆盖方案审查流转，包含 `solution-review-approve-001`（方案审查放行）与 `solution-review-reject-001`（方案两次审查打回升级人工）。
+   - 新增 `datasets/servicedesk_v1/recovery.yaml`：包含 `dispatch-rejection-recovery-001`，验证分派首选专家被打回后自动重选备选专家并闭环。
+   - 新增 `datasets/servicedesk_v1/network.yaml`：包含 `network-incident-vpn-001`（骨干网中断与 VPN 网关紧急处置，触发网络专家分派与方案审查闭环）及 `network-consultation-dns-001`（内网 DNS 记录咨询，非交互直接闭环）。
+2. **RAG 评测集精度提精与复合难例扩充**：
+   - 修正 `datasets/servicedesk_v1/rag_queries.yaml` 中 `rag-q-ac-001` 真值标注，补充 `rag-kb-ac-005`（BOLA 对象级授权缺失）到 `expected_kb_articles`。
+   - 扩充 12 条跨领域复合查询（`rag-q-comp-001` ~ `rag-q-comp-012`），覆盖网络+数据库、前端+中间件、数据库+操作系统等复合故障排障，显式标注 `negative_kb_articles` 与 `negative_tickets`。
+3. **数据集 Manifest 分层治理（Layered Governance）**：
+   - 在 `contracts/cases.py` 中为 `DatasetManifest` 新增 `layers: dict[str, list[str]]` 字段，保持强类型与向后兼容。
+   - 在 `manifest.yaml` 中规范化定义 `core_lifecycle`、`fault_injection` 与 `rag_benchmarks` 三层映射与状态，注册全量 7 个流转数据文件。
+4. **在线复测与基线固化**：
+   - 在运行中的真实 Tix 实例上全量执行 `deskbench run`（12 用例，10 passed，2 skipped per D-004），`deskbench score` 100% 通过，`deskbench gate` 零失败通过。
+   - 全量执行 `deskbench retrieval`（76 条多源查询全部通过，Recall@5 100%，MRR 0.9413，负向泄露率 0.00%）。
+
+### Requirements
+
+- [x] 在 `DatasetManifest` 中支持 `layers` 分层契约并补充单元测试。
+- [x] 新增 `review.yaml`（方案审查流转）、`recovery.yaml`（自愈重分派流转）、`network.yaml`（网络故障排查与咨询）。
+- [x] 修正 `rag-q-ac-001` 标注并新增 12 条带显式硬负样本的跨领域复合查询。
+- [x] 更新 `manifest.yaml` 分层配置与全量文件声明。
+- [x] 在真实 Tix HTTP 实例上执行 `deskbench run`、`deskbench score` 与 `deskbench gate` 校验通过。
+- [x] 在真实 Tix HTTP 实例上执行 `deskbench retrieval` 检索基准校验通过。
+- [x] 代码格式、类型检查与全量单元测试（`ruff`、`mypy`、`pytest`）通过。
+
+### Verification
+
+- `source ../tix/.local/tix-dev/deskbench.env && uv run deskbench run --dataset datasets/servicedesk_v1/manifest.yaml --adapter http --output reports` → `evaluated 12 cases; report: reports/2026-09-06T065939.895376Z`
+- `uv run deskbench score --report reports/2026-09-06T065939.895376Z/summary.json` → `scored 10/12 cases (2 skipped)`
+- `uv run deskbench gate --report reports/2026-09-06T065939.895376Z/summary.json` → `{"failures": [], "passed": true}`
+- `source ../tix/.local/tix-dev/deskbench.env && uv run deskbench retrieval --queries datasets/servicedesk_v1/rag_queries.yaml --output reports/retrieval_baseline --json` → 76 queries evaluated, 76 passed, Recall@5 = 1.0, MRR = 0.9413, Negative Leakage = 0.00%
+- `uv run ruff check src tests evals` → `All checks passed!`
+- `uv run mypy src tests evals` → `Success: no issues found in 55 source files`
+- `uv run pytest -q` → `104 passed, 3 skipped in 0.86s` (集成模式下 107 passed, 0 failed)

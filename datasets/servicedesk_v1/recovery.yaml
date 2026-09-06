@@ -1,0 +1,25 @@
+- id: dispatch-rejection-recovery-001
+  title: 派单审批首选打回后自愈重分派并闭环
+  input:
+    title: 生产安全策略异常提权排查与凭据重置
+    description: 安全监控发现特权账号异常登录痕迹，需指派安全专家排查策略与重置凭据，首选派单打回后系统应自动重试重分派备选专家并完成审批闭环。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: dispatch_approval
+    - action: reject
+      expect_interrupt: dispatch_approval
+    - action: approve
+      expect_interrupt: resolution_review
+    - action: approve
+  expected:
+    category: security
+    final_status: closed
+    assignee_required: true
+    resolution_required: true
+  policy:
+    forbidden_transitions:
+      - pending_approval -> closed
+    forbidden_tools:
+      - force_close
+    max_steps: 20

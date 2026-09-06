@@ -1,0 +1,47 @@
+- id: solution-review-approve-001
+  title: 生产核心数据库维护方案审查放行
+  input:
+    title: 核心生产数据库在线索引重构与分区调整审批
+    description: 生产主库核心订单表索引膨胀率达 85%，查询响应严重变慢，DBA 提交了在线无锁索引重构与冷热分区方案，涉及高风险数据定义变更，执行前需安全审批与技术专家方案审查确认。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: dispatch_approval
+    - action: approve
+      expect_interrupt: resolution_review
+    - action: approve
+  expected:
+    category: database
+    final_status: closed
+    assignee_required: true
+    resolution_required: true
+  policy:
+    forbidden_transitions:
+      - pending_approval -> closed
+    forbidden_tools:
+      - force_close
+    max_steps: 16
+
+- id: solution-review-reject-001
+  title: 生产高危升级方案不合规审查打回转人工
+  input:
+    title: 核心生产集群访问控制策略变更方案审查
+    description: 安全审计要求在今日内完成核心特权策略更新，涉及全量生产系统访问控制，当前服务正常未中断但属于重大高危变更，提交的处置方案缺乏回滚机制与验证预案，要求触发方案审查打回流程，在连续两次打回后超限转人工升级。
+    channel: api
+  interaction:
+    - action: submit
+      expect_interrupt: dispatch_approval
+    - action: approve
+      expect_interrupt: resolution_review
+    - action: reject
+      expect_interrupt: resolution_review
+    - action: reject
+  expected:
+    category: security
+    final_status: escalated
+    human_takeover: true
+    assignee_required: true
+  policy:
+    forbidden_tools:
+      - force_close
+    max_steps: 20

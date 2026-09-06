@@ -98,6 +98,7 @@ class DatasetManifest(BaseModel):
     source_assets: dict[str, str] = Field(default_factory=dict)
     label_semantics: str | None = None
     files: list[str] = Field(default_factory=list)
+    layers: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class Case(BaseModel):

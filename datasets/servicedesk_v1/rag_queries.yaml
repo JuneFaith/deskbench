@@ -89,7 +89,7 @@ queries:
     text: "用户能通过修改 URL 里的 ID 看到别人的数据，怎么修复"
     theme: account_permission
     expected_tickets: [rag-tkt-ac-002, rag-tkt-ac-001]
-    expected_kb_articles: [rag-kb-ac-002, rag-kb-ac-001]
+    expected_kb_articles: [rag-kb-ac-005, rag-kb-ac-002, rag-kb-ac-001]
   - id: rag-q-ac-002
     text: "新员工开通系统权限的流程怎么走，最小权限怎么分配"
     theme: account_permission
@@ -342,3 +342,89 @@ queries:
     theme: os
     expected_tickets: [rag-tkt-os-009]
     expected_kb_articles: [rag-kb-os-005]
+
+  # ============ 跨领域复合难例（含负样本标注） ============
+  - id: rag-q-comp-001
+    text: "前端跨域请求被拦截 CORS 报错，Nginx 反向代理缺少跨域响应头怎么配置"
+    theme: mix
+    expected_tickets: [rag-tkt-fe-010, rag-tkt-mw-002]
+    expected_kb_articles: [rag-kb-fe-005, rag-kb-mw-002]
+    negative_tickets: [rag-tkt-db-001, rag-tkt-sec-001]
+    negative_kb_articles: [rag-kb-db-001, rag-kb-sec-001]
+  - id: rag-q-comp-002
+    text: "数据库服务器磁盘空间满导致无法写入，排查磁盘与 inode 压力"
+    theme: mix
+    expected_tickets: [rag-tkt-os-001, rag-tkt-os-005]
+    expected_kb_articles: [rag-kb-os-002]
+    negative_tickets: [rag-tkt-fe-001, rag-tkt-sec-003]
+    negative_kb_articles: [rag-kb-fe-001, rag-kb-sec-003]
+  - id: rag-q-comp-003
+    text: "公网服务器 22 端口连不上，排查是安全组防火墙规则未生效还是遭到暴力破解被限制"
+    theme: mix
+    expected_tickets: [rag-tkt-net-008, rag-tkt-sec-002]
+    expected_kb_articles: [rag-kb-net-005, rag-kb-sec-004]
+    negative_tickets: [rag-tkt-bk-001, rag-tkt-fe-008]
+    negative_kb_articles: [rag-kb-bk-001, rag-kb-fe-003]
+  - id: rag-q-comp-004
+    text: "忘记密码和登录接口返回响应存在差异，被攻击者利用枚举用户账号和批量撞库"
+    theme: mix
+    expected_tickets: [rag-tkt-ac-010, rag-tkt-sec-005, rag-tkt-sec-006]
+    expected_kb_articles: [rag-kb-ac-006, rag-kb-sec-002, rag-kb-sec-004]
+    negative_tickets: [rag-tkt-os-007, rag-tkt-net-001]
+    negative_kb_articles: [rag-kb-os-003, rag-kb-net-001]
+  - id: rag-q-comp-005
+    text: "Nginx 反向代理高并发时频繁 502 报错，系统日志提示 too many open files 文件描述符耗尽"
+    theme: mix
+    expected_tickets: [rag-tkt-os-008, rag-tkt-mw-001]
+    expected_kb_articles: [rag-kb-os-004, rag-kb-mw-001]
+    negative_tickets: [rag-tkt-ac-003, rag-tkt-bk-002]
+    negative_kb_articles: [rag-kb-ac-003, rag-kb-bk-001]
+  - id: rag-q-comp-006
+    text: "超大数据库全量 pg_dump 备份耗时过长，占用过多连接数导致业务连接打满超时"
+    theme: mix
+    expected_tickets: [rag-tkt-bk-005, rag-tkt-db-004]
+    expected_kb_articles: [rag-kb-bk-001, rag-kb-db-003]
+    negative_tickets: [rag-tkt-fe-002, rag-tkt-net-001]
+    negative_kb_articles: [rag-kb-fe-001, rag-kb-net-001]
+  - id: rag-q-comp-007
+    text: "网站打开慢且白屏，网络请求显示 DNS 解析超时和 TLS 握手建立连接耗时极高"
+    theme: mix
+    expected_tickets: [rag-tkt-fe-001, rag-tkt-fe-003, rag-tkt-net-004]
+    expected_kb_articles: [rag-kb-fe-001, rag-kb-fe-002]
+    negative_tickets: [rag-tkt-os-005, rag-tkt-bk-007]
+    negative_kb_articles: [rag-kb-os-005, rag-kb-bk-003]
+  - id: rag-q-comp-008
+    text: "站点遭到 HTTP/2 Rapid Reset 攻击导致反向代理负载升高连接快速重置，排查网关防范措施"
+    theme: mix
+    expected_tickets: [rag-tkt-mw-008]
+    expected_kb_articles: [rag-kb-mw-003]
+    negative_tickets: [rag-tkt-db-001, rag-tkt-ac-004]
+    negative_kb_articles: [rag-kb-db-001, rag-kb-ac-001]
+  - id: rag-q-comp-009
+    text: "员工账号遭到撞库暴力尝试，需要排查公网登录失败并全员强制启用 MFA 多因素认证"
+    theme: mix
+    expected_tickets: [rag-tkt-ac-008, rag-tkt-sec-006]
+    expected_kb_articles: [rag-kb-ac-004, rag-kb-sec-004]
+    negative_tickets: [rag-tkt-fe-004, rag-tkt-bk-005]
+    negative_kb_articles: [rag-kb-fe-003, rag-kb-bk-004]
+  - id: rag-q-comp-010
+    text: "批量删除脚本误删大量客户站点数据事故，如何组织故障复盘与数据恢复处置"
+    theme: mix
+    expected_tickets: [rag-tkt-bk-008, rag-tkt-bk-004]
+    expected_kb_articles: [rag-kb-bk-004, rag-kb-bk-002]
+    negative_tickets: [rag-tkt-net-001, rag-tkt-fe-001]
+    negative_kb_articles: [rag-kb-net-001, rag-kb-fe-001]
+  - id: rag-q-comp-011
+    text: "前端文件上传报错，Nginx 返回 413 Request Entity Too Large 请求体过大怎么调优"
+    theme: mix
+    expected_tickets: [rag-tkt-mw-006]
+    expected_kb_articles: [rag-kb-mw-004]
+    negative_tickets: [rag-tkt-db-002, rag-tkt-os-007]
+    negative_kb_articles: [rag-kb-db-002, rag-kb-os-003]
+  - id: rag-q-comp-012
+    text: "WebSocket 反向代理连接失败，Nginx 代理长连接时缺少 Upgrade 和 Connection 请求头"
+    theme: mix
+    expected_tickets: [rag-tkt-mw-007]
+    expected_kb_articles: [rag-kb-mw-005]
+    negative_tickets: [rag-tkt-db-001, rag-tkt-bk-001]
+    negative_kb_articles: [rag-kb-db-001, rag-kb-bk-001]
