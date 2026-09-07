@@ -67,21 +67,35 @@ an existing report summary; it does not rerun scorers.
 
 ## CLI and Tix integration
 
-The CLI has three commands:
+The CLI provides five core commands (`run`, `score`, `gate`, `retrieval`, `env`):
 
 ```bash
+# 1. Run evaluation cases
 DESKBENCH_TIX_URL=https://tix.example \
 DESKBENCH_TIX_USERNAME=... \
 DESKBENCH_TIX_PASSWORD=... \
 uv run deskbench run \
-  --dataset datasets/servicedesk_v1/happy_path.yaml \
-  --adapter http --output reports
+  --dataset datasets/servicedesk_v1/manifest.yaml \
+  --adapter http --pre-clean --output reports
+
+# 2. Score existing report
 uv run deskbench score --report reports/<timestamp>/summary.json
+
+# 3. Evaluate regression gate
 uv run deskbench gate --report reports/<timestamp>/summary.json \
   --baseline reports/<baseline>/summary.json
+
+# 4. Evaluate RAG retrieval quality
+uv run deskbench retrieval \
+  --queries datasets/servicedesk_v1/rag_queries.yaml \
+  --output reports/retrieval_baseline
+
+# 5. Environment diagnostics and test lifecycle cleanup
+uv run deskbench env status
+uv run deskbench env clean
 ```
 
-Add `--json` to `run`, `score`, or `gate` for machine-readable success and
+Add `--json` to `run`, `score`, `gate`, `retrieval`, or `env` for machine-readable success and
 error envelopes. The real-HTTP MVP reads `DESKBENCH_TIX_URL` and either
 `DESKBENCH_TIX_TOKEN` or `DESKBENCH_TIX_USERNAME` plus
 `DESKBENCH_TIX_PASSWORD`. Tix's LLM and embedding model settings are

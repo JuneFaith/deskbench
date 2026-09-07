@@ -44,7 +44,7 @@ reports/<timestamp>/
 
 每个 `ScoreResult` 至少包含：
 
-- `scorer`：`outcome`、`invariants`、`trajectory` 或 `resilience`；
+- `scorer`：`outcome`、`invariants`、`trajectory`、`resilience` 或 `retrieval`；
 - `passed`：该 Scorer 是否通过；
 - `value`：0 到 1 的确定性得分；
 - `failures`：稳定的失败代码；

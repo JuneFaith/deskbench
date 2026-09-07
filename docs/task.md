@@ -880,3 +880,6 @@ Adapter 仍只调用 Tix 公开 Ticket API；建单后通过有界详情轮询�
 - `uv run mypy src tests evals` → `Success: no issues found in 57 source files`
 - `uv run pytest` → `120 passed, 3 skipped in 0.93s`
 
+---
+
+## T-014: 待创建
