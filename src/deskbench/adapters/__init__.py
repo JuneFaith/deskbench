@@ -6,6 +6,7 @@ from deskbench.adapters.base import (
     RunHandle,
     adapter_supports_fault,
 )
+from deskbench.adapters.java_assistant import JavaAssistantSseAdapter
 from deskbench.adapters.tix_retrieval import (
     RetrievalResult,
     TixRetrievalAdapter,
@@ -13,6 +14,7 @@ from deskbench.adapters.tix_retrieval import (
 
 __all__ = [
     "AgentAdapter",
+    "JavaAssistantSseAdapter",
     "PreparedRun",
     "RetrievalResult",
     "RunHandle",

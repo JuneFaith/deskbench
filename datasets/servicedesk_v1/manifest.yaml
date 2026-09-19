@@ -19,6 +19,7 @@ layers:
     - recovery.yaml
     - network.yaml
     - autonomous.yaml
+    - order_confirmation.yaml
   fault_injection:
     - degradation.yaml
     - security.yaml
@@ -35,3 +36,4 @@ files:
   - autonomous.yaml
   - degradation.yaml
   - security.yaml
+  - order_confirmation.yaml
